@@ -1,0 +1,41 @@
+#ifndef INODE
+#define INODE
+
+#include "consts.h"
+
+struct stat {
+    unsigned long size_;
+    unsigned int owner_;
+    unsigned short umask_;
+};
+
+struct dir_data {
+    char *name_;
+    unsigned int position_;
+};
+
+union inode_data {
+    int *file_data_;
+    struct dir_data dir_data_[MAX_FILES_IN_DIRECTORY];
+};
+
+struct inode {
+    struct stat stat_;
+    union inode_data data_;
+    unsigned long size_;
+    unsigned int flags_;
+    short inner_flags_;
+};
+
+#define IS_DIR(inode) (inode.inner_flags_ & IS_DIR_MASK)
+#define IS_USED(inode) (inode.inner_flags_ & IS_USED_MASK)
+
+struct inode inodes[MAX_INODES];
+
+int add_start_inode();
+int parse_path(char *path, struct dir_data *data);
+int parse_path_new_file(char *path, struct dir_data *data);
+int find_position();
+int get_empty_dir_data(union inode_data *data);
+
+#endif
