@@ -25,8 +25,8 @@ struct fuse_operations tmpfs_oper = {
   .truncate = NULL,
   .utime = NULL,
   .open = tmpfs_open,
-  .read = NULL,
-  .write = NULL,
+  .read = tmpfs_read,
+  .write = tmpfs_write,
 
   .statfs = NULL,
   .flush = NULL,

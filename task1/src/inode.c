@@ -28,5 +28,5 @@ int get_empty_dir_data(union inode_data *data) {
         return -1;
     }
     data->dir_data_ = arr;
-    return 
+    return 0;
 }

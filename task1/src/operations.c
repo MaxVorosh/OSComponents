@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include "operations.h"
 #include "inode.h"
 #include "errno.h"
@@ -60,5 +61,58 @@ int tmpfs_open(const char *path, struct fuse_file_info *fi) {
     }
     struct inode *inode = &inodes[data.position_];
     inode->flags_ = fi->flags;
+    return 0;
+}
+
+int tmpfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+    struct dir_data data;
+    int res = parse_path(path, &data);
+    if (res < 0) {
+        return res;
+    }
+    struct inode *inode = &inodes[data.position_];
+    if (IS_DIR((*inode))) {
+        return -EISDIR;
+    }
+    if (inode->flags_ & O_WRONLY) {
+        return -EBADF;
+    }
+    if (size + offset >= inode->size_ || offset < 0) {
+        return -ENXIO;
+    }
+    memcpy(buf, inode->data_.file_data_ + offset, size);
+    return 0;
+}
+
+int tmpfs_write(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+    struct dir_data data;
+    int res = parse_path(path, &data);
+    if (res < 0) {
+        return res;
+    }
+    struct inode *inode = &inodes[data.position_];
+    if (IS_DIR((*inode))) {
+        return -EISDIR;
+    }
+    if (inode->flags_ & O_RDONLY) {
+        return -EBADF;
+    }
+    if (size + offset >= inode->size_ || offset < 0) {
+        return -ENXIO;
+    }
+    memcpy(inode->data_.file_data_ + offset, buf, size);
+    return 0;
+}
+
+int bb_getattr(const char *path, struct stat *statbuf) {
+    struct dir_data data;
+    int res = parse_path(path, &data);
+    if (res < 0) {
+        return res;
+    }
+    struct inode *inode = &inodes[data.position_];
+    statbuf->st_size = inode->size_;
+    statbuf->st_mode = inode->stat_.umask_;
+    statbuf->st_uid =  inode->stat_.owner_;
     return 0;
 }

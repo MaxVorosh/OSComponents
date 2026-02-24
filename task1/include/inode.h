@@ -3,8 +3,7 @@
 
 #include "consts.h"
 
-struct stat {
-    unsigned long size_;
+struct inode_stat {
     unsigned int owner_;
     unsigned short umask_;
 };
@@ -15,12 +14,12 @@ struct dir_data {
 };
 
 union inode_data {
-    int *file_data_;
+    char *file_data_;
     struct dir_data dir_data_[MAX_FILES_IN_DIRECTORY];
 };
 
 struct inode {
-    struct stat stat_;
+    struct inode_stat stat_;
     union inode_data data_;
     unsigned long size_;
     unsigned int flags_;
