@@ -24,6 +24,7 @@ struct inode {
     unsigned long size_;
     unsigned int flags_;
     short inner_flags_;
+    unsigned int parent_;
 };
 
 #define IS_DIR(inode) (inode.inner_flags_ & IS_DIR_MASK)

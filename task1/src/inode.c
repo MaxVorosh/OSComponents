@@ -5,11 +5,12 @@ int add_start_inode() {
     union inode_data data;
     get_empty_dir_data(&data);
     struct inode inode = {
-        {0, 0, 0},
+        {0, 0},
         data,
         0,
         0,
-        IS_USED_MASK | IS_DIR_MASK
+        IS_USED_MASK | IS_DIR_MASK,
+        0
     };
     inodes[0] = inode;
 }
@@ -68,6 +69,7 @@ int parse_path(char *path, struct dir_data *data, int is_exists) {
                 }
             }
             if (path[r] == 0) {
+                strcpy(data->name_, stack[depth]);
                 data->position_ = inode_position;
                 break;
             }

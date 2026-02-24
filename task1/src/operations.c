@@ -22,6 +22,7 @@ int add_inode(const char *path, struct inode inode) {
     parent_inode->data_.dir_data_[parent_inode->size_] = new_dir_data;
     parent_inode->size_++;
 
+    inode.parent_ = parent_inode;
     inodes[position] = inode;
     return position;
 }
@@ -30,11 +31,12 @@ int tmpfs_mkdir(const char *path, mode_t mode) {
     union inode_data inode_data;
     get_empty_dir_data(&inode_data);
     struct inode inode = {
-        {0, 0, mode},
+        {0, mode},
         inode_data,
         0,
         0,
-        IS_DIR_MASK | IS_USED_MASK
+        IS_DIR_MASK | IS_USED_MASK,
+        0
     };
     return add_inode(path, inode);
 }
@@ -43,11 +45,12 @@ int tmpfs_mknod(const char *path, mode_t mode, dev_t dev) {
     union inode_data inode_data;
     inode_data.file_data_ = 0;
     struct inode inode = {
-        {0, 0, mode},
+        {0, mode},
         inode_data,
         0,
         0,
-        IS_USED_MASK
+        IS_USED_MASK,
+        0
     };
     return add_inode(path, inode);
 }
@@ -112,6 +115,7 @@ int tmpfs_write(const char *path, char *buf, size_t size, off_t offset, struct f
             return -ENOSPC;
         }
         inode->data_.file_data_ = new_ptr;
+        inode->size_ = offset + size;
     }
     memcpy(inode->data_.file_data_ + offset, buf, size);
     return size;
@@ -127,5 +131,30 @@ int tmpfs_getattr(const char *path, struct stat *statbuf) {
     statbuf->st_size = inode->size_;
     statbuf->st_mode = inode->stat_.umask_;
     statbuf->st_uid =  inode->stat_.owner_;
+    return 0;
+}
+
+int tmpfs_rmdir(const char *path) {
+    struct dir_data data;
+    int res = parse_path(path, &data, 1);
+    if (res < 0) {
+        return res;
+    }
+    struct inode *inode = &inodes[data.position_];
+    if (!IS_DIR((*inode))) {
+        return -ENOTDIR;
+    }
+    if (inode->size_ != 0) {
+        return -ENOTEMPTY;
+    }
+    struct inode *parent_inode = &inodes[inode->parent_];
+    for (int i = 0; i < parent_inode->size_; ++i) {
+        if (strcmp(parent_inode->data_.dir_data_[i], data.name_) == 0) {
+            parent_inode->data_.dir_data_[i] = parent_inode->data_.dir_data_[parent_inode->size_ - 1];
+            parent_inode->size_--;
+            break;
+        }
+    }
+    inode->inner_flags_ ^= IS_USED_MASK;
     return 0;
 }
