@@ -1,9 +1,20 @@
+#include <string.h>
+#include <stdlib.h>
 #include "inode.h"
 #include "errno.h"
 
+struct inode *inodes = NULL;
+
 int add_start_inode() {
+    inodes = malloc(MAX_INODES * sizeof(struct inode));
+    if (inodes == NULL) {
+        return -ENOSPC;
+    }
     union inode_data data;
-    get_empty_dir_data(&data);
+    int res = get_empty_dir_data(&data);
+    if (res < 0) {
+        return res;
+    }
     struct inode inode = {
         {0, 0},
         data,
@@ -13,6 +24,7 @@ int add_start_inode() {
         0
     };
     inodes[0] = inode;
+    return 0;
 }
 
 int find_subdir(int dir_position, char *name) {
@@ -28,7 +40,7 @@ int find_subdir(int dir_position, char *name) {
 void remove_subdir(int dir_position, char *name) {
     struct inode *parent_inode = &inodes[dir_position];
     for (int i = 0; i < parent_inode->size_; ++i) {
-        if (strcmp(parent_inode->data_.dir_data_[i], name) == 0) {
+        if (strcmp(parent_inode->data_.dir_data_[i].name_, name) == 0) {
             parent_inode->data_.dir_data_[i] = parent_inode->data_.dir_data_[parent_inode->size_ - 1];
             parent_inode->size_--;
             break;
@@ -36,7 +48,7 @@ void remove_subdir(int dir_position, char *name) {
     }
 }
 
-int parse_path(char *path, struct dir_data *data, int is_exists) {
+int parse_path(const char *path, struct dir_data *data, int is_exists) {
     char stack[MAX_DIR_RECURSION][MAX_PATH];
     int depth = 0;
     int l = 0;
@@ -59,7 +71,8 @@ int parse_path(char *path, struct dir_data *data, int is_exists) {
                     return -ELOOP;
                 }
                 else {
-                    strcpy(path + l, stack + depth, r - l);
+                    memcpy(stack[depth], path + l, r - l);
+                    stack[depth][r - l] = 0;
                     if (!IS_DIR(inodes[inode_position])) {
                         return -ENOTDIR;
                     }

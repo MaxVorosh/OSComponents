@@ -15,7 +15,7 @@ struct dir_data {
 
 union inode_data {
     char *file_data_;
-    struct dir_data dir_data_[MAX_FILES_IN_DIRECTORY];
+    struct dir_data *dir_data_;
 };
 
 struct inode {
@@ -30,12 +30,12 @@ struct inode {
 #define IS_DIR(inode) (inode.inner_flags_ & IS_DIR_MASK)
 #define IS_USED(inode) (inode.inner_flags_ & IS_USED_MASK)
 
-struct inode inodes[MAX_INODES];
+extern struct inode *inodes;
 
 int add_start_inode();
 int find_subdir(int dir_position, char *name);
 void remove_subdir(int dir_position, char *name);
-int parse_path(char *path, struct dir_data *data, int is_exists);
+int parse_path(const char *path, struct dir_data *data, int is_exists);
 int find_position();
 int get_empty_dir_data(union inode_data *data);
 

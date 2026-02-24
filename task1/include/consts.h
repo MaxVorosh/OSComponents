@@ -6,7 +6,7 @@
 #define MAX_FILES_IN_DIRECTORY 64
 #define MAX_DIR_RECURSION 64
 
-const short IS_DIR_MASK = 1;
-const short IS_USED_MASK = 2;
+#define IS_DIR_MASK 1
+#define IS_USED_MASK 2
 
 #endif

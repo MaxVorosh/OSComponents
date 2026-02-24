@@ -1,4 +1,6 @@
 #include <fcntl.h>
+#include <string.h>
+#include <stdlib.h>
 #include "operations.h"
 #include "inode.h"
 #include "errno.h"
@@ -22,7 +24,7 @@ int add_inode(const char *path, struct inode inode) {
     parent_inode->data_.dir_data_[parent_inode->size_] = new_dir_data;
     parent_inode->size_++;
 
-    inode.parent_ = parent_inode;
+    inode.parent_ = data.position_;
     inodes[position] = inode;
     return position;
 }
@@ -90,7 +92,7 @@ int tmpfs_read(const char *path, char *buf, size_t size, off_t offset, struct fu
     return 0;
 }
 
-int tmpfs_write(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+int tmpfs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
     struct dir_data data;
     int res = parse_path(path, &data, 1);
     if (res < 0) {
@@ -121,7 +123,7 @@ int tmpfs_write(const char *path, char *buf, size_t size, off_t offset, struct f
     return size;
 }
 
-int tmpfs_getattr(const char *path, struct stat *statbuf) {
+int tmpfs_getattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi) {
     struct dir_data data;
     int res = parse_path(path, &data, 1);
     if (res < 0) {

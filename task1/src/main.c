@@ -1,5 +1,7 @@
 #include <fuse.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include "inode.h"
 #include "operations.h"
 
@@ -13,10 +15,9 @@ struct fuse_operations tmpfs_oper = {
   .getattr = tmpfs_getattr,
   .readlink = NULL,
 
-  .getdir = NULL,
   .mknod = tmpfs_mknod,
   .mkdir = tmpfs_mkdir,
-  .unlink = NULL,
+  .unlink = tmpfs_unlink,
   .rmdir = tmpfs_rmdir,
   .symlink = NULL,
   .rename = NULL,
@@ -24,7 +25,7 @@ struct fuse_operations tmpfs_oper = {
   .chmod = NULL,
   .chown = NULL,
   .truncate = NULL,
-  .utime = NULL,
+  .utimens = NULL,
   .open = tmpfs_open,
   .read = tmpfs_read,
   .write = tmpfs_write,
@@ -47,9 +48,7 @@ struct fuse_operations tmpfs_oper = {
   .fsyncdir = NULL,
   .init = NULL,
   .destroy = NULL,
-  .access = NULL,
-  .ftruncate = NULL,
-  .fgetattr = NULL
+  .access = NULL
 };
 
 int main(int argc, char *argv[])
