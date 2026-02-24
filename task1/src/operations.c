@@ -77,8 +77,11 @@ int tmpfs_read(const char *path, char *buf, size_t size, off_t offset, struct fu
     if (inode->flags_ & O_WRONLY) {
         return -EBADF;
     }
-    if (size + offset >= inode->size_ || offset < 0) {
+    if (offset >= inode->size_) {
         return -ENXIO;
+    }
+    if (offset < 0) {
+        return -EINVAL;
     }
     memcpy(buf, inode->data_.file_data_ + offset, size);
     return 0;
@@ -97,14 +100,24 @@ int tmpfs_write(const char *path, char *buf, size_t size, off_t offset, struct f
     if (inode->flags_ & O_RDONLY) {
         return -EBADF;
     }
-    if (size + offset >= inode->size_ || offset < 0) {
+    if (offset >= inode->size_) {
         return -ENXIO;
     }
+    if (offset < 0) {
+        return -EINVAL;
+    }
+    if (offset + size >= inode->size_) {
+        char *new_ptr = realloc(inode->data_.file_data_, offset + size);
+        if (new_ptr == 0) {
+            return -ENOSPC;
+        }
+        inode->data_.file_data_ = new_ptr;
+    }
     memcpy(inode->data_.file_data_ + offset, buf, size);
-    return 0;
+    return size;
 }
 
-int bb_getattr(const char *path, struct stat *statbuf) {
+int tmpfs_getattr(const char *path, struct stat *statbuf) {
     struct dir_data data;
     int res = parse_path(path, &data, 1);
     if (res < 0) {
