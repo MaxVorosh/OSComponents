@@ -9,7 +9,7 @@ void tmpfs_usage()
 }
 
 struct fuse_operations tmpfs_oper = {
-  .getattr = NULL,
+  .getattr = tmpfs_getattr,
   .readlink = NULL,
 
   .getdir = NULL,

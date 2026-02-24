@@ -5,7 +5,7 @@
 
 int add_inode(const char *path, struct inode inode) {
     struct dir_data data;
-    int res = parse_path_new_file(path, &data);
+    int res = parse_path(path, &data, 0);
     if (res < 0) {
         return res;
     }
@@ -55,7 +55,7 @@ int tmpfs_mknod(const char *path, mode_t mode, dev_t dev) {
 // Not creating file
 int tmpfs_open(const char *path, struct fuse_file_info *fi) {
     struct dir_data data;
-    int res = parse_path_new_file(path, &data);
+    int res = parse_path(path, &data, 0);
     if (res < 0) {
         return res;
     }
@@ -66,7 +66,7 @@ int tmpfs_open(const char *path, struct fuse_file_info *fi) {
 
 int tmpfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
     struct dir_data data;
-    int res = parse_path(path, &data);
+    int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;
     }
@@ -86,7 +86,7 @@ int tmpfs_read(const char *path, char *buf, size_t size, off_t offset, struct fu
 
 int tmpfs_write(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
     struct dir_data data;
-    int res = parse_path(path, &data);
+    int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;
     }
@@ -106,7 +106,7 @@ int tmpfs_write(const char *path, char *buf, size_t size, off_t offset, struct f
 
 int bb_getattr(const char *path, struct stat *statbuf) {
     struct dir_data data;
-    int res = parse_path(path, &data);
+    int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;
     }
