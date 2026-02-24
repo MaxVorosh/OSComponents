@@ -101,8 +101,8 @@ int parse_path(const char *path, struct dir_data *data, int is_exists) {
                 break;
             }
             l = r + 1;
-            r++;
         }
+        r++;
     }
     return 0;
 }

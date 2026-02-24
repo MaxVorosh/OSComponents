@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
     argv[argc-1] = NULL;
     argc--;
     int res = add_start_inode();
-    if (!res) {
+    if (res < 0) {
         perror("Cannot allocate memory for start inode");
         abort();
     }
