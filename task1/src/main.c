@@ -47,7 +47,7 @@ struct fuse_operations tmpfs_oper = {
   .releasedir = NULL,
   .fsyncdir = NULL,
   .init = NULL,
-  .destroy = NULL,
+  .destroy = tmpfs_destroy,
   .access = NULL
 };
 

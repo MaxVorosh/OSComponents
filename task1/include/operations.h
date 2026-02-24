@@ -15,5 +15,7 @@ int tmpfs_write(const char *path, const char *buf, size_t size, off_t offset, st
 int tmpfs_getattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi);
 int tmpfs_rmdir(const char *path);
 int tmpfs_unlink(const char *path);
+void tmpfs_destroy(void *userdata);
+void destroy_recursive(int inode_position);
 
 #endif

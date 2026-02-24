@@ -170,3 +170,20 @@ int tmpfs_unlink(const char *path) {
     inode->inner_flags_ ^= IS_USED_MASK;
     return 0;
 }
+
+void tmpfs_destroy(void *userdata) {
+    destroy_recursive(0);
+    free(inodes);
+}
+
+void destroy_recursive(int inode_position) {
+    struct inode inode = inodes[inode_position];
+    if (!IS_DIR(inode)) {
+        free(inode.data_.file_data_);
+        return;
+    }
+    for (int i = 0; i < inode.size_; ++i) {
+        destroy_recursive(inode.data_.dir_data_[i].position_);
+    }
+    free(inode.data_.dir_data_);
+}
