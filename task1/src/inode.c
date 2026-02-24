@@ -25,6 +25,17 @@ int find_subdir(int dir_position, char *name) {
     return -1;
 }
 
+void remove_subdir(int dir_position, char *name) {
+    struct inode *parent_inode = &inodes[dir_position];
+    for (int i = 0; i < parent_inode->size_; ++i) {
+        if (strcmp(parent_inode->data_.dir_data_[i], name) == 0) {
+            parent_inode->data_.dir_data_[i] = parent_inode->data_.dir_data_[parent_inode->size_ - 1];
+            parent_inode->size_--;
+            break;
+        }
+    }
+}
+
 int parse_path(char *path, struct dir_data *data, int is_exists) {
     char stack[MAX_DIR_RECURSION][MAX_PATH];
     int depth = 0;
@@ -34,6 +45,9 @@ int parse_path(char *path, struct dir_data *data, int is_exists) {
     while (1) {
         if (path[r] == '/' || path[r] == 0) {
             if (l != r) {
+                if (r - l > MAX_PATH) {
+                    return -ENAMETOOLONG;
+                }
                 if (r - l == 1 && path[l] == '.') {}
                 else if (r - l == 2 && path[l] == '.' && path[l + 1] == '.') {
                     if (depth == 0) {

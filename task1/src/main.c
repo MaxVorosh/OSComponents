@@ -1,3 +1,4 @@
+#include <fuse.h>
 #include <stdio.h>
 #include "inode.h"
 #include "operations.h"
@@ -69,7 +70,7 @@ int main(int argc, char *argv[])
     // rootpoint or mountpoint whose name starts with a hyphen, but so
     // will a zillion other programs)
     if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-'))
-	tmpfs_usage();
+	  tmpfs_usage();
 
     char* rootdir = realpath(argv[argc-2], NULL);
     argv[argc-2] = argv[argc-1];

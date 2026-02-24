@@ -34,6 +34,7 @@ struct inode inodes[MAX_INODES];
 
 int add_start_inode();
 int find_subdir(int dir_position, char *name);
+void remove_subdir(int dir_position, char *name);
 int parse_path(char *path, struct dir_data *data, int is_exists);
 int find_position();
 int get_empty_dir_data(union inode_data *data);

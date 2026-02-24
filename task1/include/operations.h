@@ -13,5 +13,6 @@ int tmpfs_read(const char *path, char *buf, size_t size, off_t offset, struct fu
 int tmpfs_write(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
 int tmpfs_getattr(const char *path, struct stat *statbuf);
 int tmpfs_rmdir(const char *path);
+int tmpfs_unlink(const char *path);
 
 #endif

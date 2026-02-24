@@ -147,14 +147,24 @@ int tmpfs_rmdir(const char *path) {
     if (inode->size_ != 0) {
         return -ENOTEMPTY;
     }
-    struct inode *parent_inode = &inodes[inode->parent_];
-    for (int i = 0; i < parent_inode->size_; ++i) {
-        if (strcmp(parent_inode->data_.dir_data_[i], data.name_) == 0) {
-            parent_inode->data_.dir_data_[i] = parent_inode->data_.dir_data_[parent_inode->size_ - 1];
-            parent_inode->size_--;
-            break;
-        }
+    remove_subdir(inode->parent_, data.name_);
+    free(inode->data_.dir_data_);
+    inode->inner_flags_ ^= IS_USED_MASK;
+    return 0;
+}
+
+int tmpfs_unlink(const char *path) {
+    struct dir_data data;
+    int res = parse_path(path, &data, 1);
+    if (res < 0) {
+        return res;
     }
+    struct inode *inode = &inodes[data.position_];
+    if (IS_DIR((*inode))) {
+        return -EISDIR;
+    }
+    remove_subdir(inode->parent_, data.name_);
+    free(inode->data_.file_data_);
     inode->inner_flags_ ^= IS_USED_MASK;
     return 0;
 }
