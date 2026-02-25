@@ -20,9 +20,9 @@ struct fuse_operations tmpfs_oper = {
   .unlink = tmpfs_unlink,
   .rmdir = tmpfs_rmdir,
   .symlink = NULL,
-  .rename = NULL,
+  .rename = tmpfs_rename,
   .link = NULL,
-  .chmod = NULL,
+  .chmod = tmpfs_chmod,
   .chown = NULL,
   .truncate = NULL,
   .utimens = NULL,
@@ -43,7 +43,7 @@ struct fuse_operations tmpfs_oper = {
 #endif
   
   .opendir = NULL,
-  .readdir = NULL,
+  .readdir = tmpfs_readdir,
   .releasedir = NULL,
   .fsyncdir = NULL,
   .init = NULL,

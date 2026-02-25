@@ -58,7 +58,6 @@ int parse_path(const char *path, struct dir_data *data, int is_exists) {
     int inode_position = 0;
     data->position_ = 0;
     while (1) {
-        fprintf(stderr, "%d %d %d\n", r, l, path[r]);
         if (path[r] == '/' || path[r] == 0) {
             if (l != r) {
                 if (r - l > MAX_PATH) {
@@ -100,9 +99,7 @@ int parse_path(const char *path, struct dir_data *data, int is_exists) {
                 }
             }
             if (path[r] == 0) {
-                fprintf(stderr, "before strcpy\n");
                 strcpy(data->name_, stack[depth]);
-                fprintf(stderr, "after strcpy\n");
                 data->position_ = inode_position;
                 break;
             }
