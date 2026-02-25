@@ -3,16 +3,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include "operations.h"
 #include "inode.h"
 #include "errno.h"
 
 int add_inode(const char *path, struct inode inode) {
     struct dir_data data;
-    data.name_ = malloc(MAX_PATH);
-    if (!data.name_) {
-        return -ENOSPC;
-    }
     int res = parse_path(path, &data, 0);
     if (res < 0) {
         return res;
@@ -26,7 +23,6 @@ int add_inode(const char *path, struct inode inode) {
     if (parent_inode->size_ == MAX_FILES_IN_DIRECTORY) {
         return -EDQUOT;
     }
-    fprintf(stderr, "Add node success\n");
     struct dir_data new_dir_data = {data.name_, position};
     parent_inode->data_.dir_data_[parent_inode->size_] = new_dir_data;
     parent_inode->size_++;
@@ -39,16 +35,20 @@ int add_inode(const char *path, struct inode inode) {
 int tmpfs_mkdir(const char *path, mode_t mode) {
     fprintf(stderr, "Mkdir %s\n", path);
     union inode_data inode_data;
-    get_empty_dir_data(&inode_data);
+    int res_init = get_empty_dir_data(&inode_data);
+    if (res_init < 0) {
+        return -ENOSPC;
+    }
     struct inode inode = {
-        {getuid(), getgid(), mode},
+        {getuid(), getgid(), S_IFDIR | mode},
         inode_data,
         0,
         0,
         IS_DIR_MASK | IS_USED_MASK,
         0
     };
-    return add_inode(path, inode);
+    int res = add_inode(path, inode);
+    return res;
 }
 
 int tmpfs_mknod(const char *path, mode_t mode, dev_t dev) {
@@ -70,10 +70,6 @@ int tmpfs_mknod(const char *path, mode_t mode, dev_t dev) {
 int tmpfs_open(const char *path, struct fuse_file_info *fi) {
     fprintf(stderr, "Open %s\n", path);
     struct dir_data data;
-    data.name_ = malloc(MAX_PATH);
-    if (!data.name_) {
-        return -ENOSPC;
-    }
     int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;
@@ -84,12 +80,7 @@ int tmpfs_open(const char *path, struct fuse_file_info *fi) {
 }
 
 int tmpfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
-    fprintf(stderr, "Read %s\n", path);
     struct dir_data data;
-    data.name_ = malloc(MAX_PATH);
-    if (!data.name_) {
-        return -ENOSPC;
-    }
     int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;
@@ -112,13 +103,7 @@ int tmpfs_read(const char *path, char *buf, size_t size, off_t offset, struct fu
 }
 
 int tmpfs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
-    // fprintf(stderr, "Write %s\n", path);
     struct dir_data data;
-    data.name_ = malloc(MAX_PATH);
-    if (!data.name_) {
-        fprintf(stderr, "Write not malloc\n");
-        return -ENOSPC;
-    }
     int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;
@@ -156,13 +141,8 @@ int tmpfs_getattr(const char *path, struct stat *statbuf, struct fuse_file_info 
     fprintf(stderr, "Getattr %s\n", path);
     memset(statbuf, 0, sizeof(struct stat));
     struct dir_data data;
-    data.name_ = malloc(MAX_PATH);
-    if (!data.name_) {
-        return -ENOSPC;
-    }
     int res = parse_path(path, &data, 1);
     if (res < 0) {
-        fprintf(stderr, "getattr err %d\n", res);
         return res;
     }
     struct inode *inode = &inodes[data.position_];
@@ -179,17 +159,12 @@ int tmpfs_getattr(const char *path, struct stat *statbuf, struct fuse_file_info 
     statbuf->st_ctime = 0;
     statbuf->st_nlink = 2;
     statbuf->st_blksize = 4096;
-    fprintf(stderr, "getattr end\n");
     return 0;
 }
 
 int tmpfs_rmdir(const char *path) {
     fprintf(stderr, "Rmdir %s\n", path);
     struct dir_data data;
-    data.name_ = malloc(MAX_PATH);
-    if (!data.name_) {
-        return -ENOSPC;
-    }
     int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;
@@ -210,10 +185,6 @@ int tmpfs_rmdir(const char *path) {
 int tmpfs_unlink(const char *path) {
     fprintf(stderr, "Unlink %s\n", path);
     struct dir_data data;
-    data.name_ = malloc(MAX_PATH);
-    if (!data.name_) {
-        return -ENOSPC;
-    }
     int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;
@@ -263,10 +234,6 @@ int tmpfs_statfs(const char *path, struct statvfs *statv) {
 int tmpfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi, enum fuse_readdir_flags flags) {
     fprintf(stderr, "readdir\n");
     struct dir_data data;
-    data.name_ = malloc(MAX_PATH);
-    if (!data.name_) {
-        return -ENOSPC;
-    }
     int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;

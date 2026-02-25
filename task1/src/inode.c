@@ -12,6 +12,7 @@ int add_start_inode() {
     if (inodes == NULL) {
         return -ENOSPC;
     }
+    memset(inodes, 0, MAX_INODES * sizeof(struct inode));
     union inode_data data;
     int res = get_empty_dir_data(&data);
     if (res < 0) {
@@ -26,6 +27,7 @@ int add_start_inode() {
         0
     };
     inodes[0] = inode;
+    fprintf(stderr, "add start inode %d\n", inode.stat_.umask_);
     return 0;
 }
 
@@ -57,9 +59,14 @@ int parse_path(const char *path, struct dir_data *data, int is_exists) {
     int l = 0;
     int r = 0;
     int inode_position = 0;
+    int len = strlen(path);
+    data->name_ = malloc(MAX_PATH);
+    if (!data->name_) {
+        return -ENOSPC;
+    }
     data->position_ = 0;
     while (1) {
-        if (path[r] == '/' || path[r] == 0) {
+        if (path[r] == '/' || r == len) {
             if (l != r) {
                 if (r - l > MAX_PATH) {
                     return -ENAMETOOLONG;
@@ -75,6 +82,7 @@ int parse_path(const char *path, struct dir_data *data, int is_exists) {
                     return -ELOOP;
                 }
                 else {
+                    depth++;
                     memcpy(stack[depth], path + l, r - l);
                     stack[depth][r - l] = 0;
                     if (!IS_DIR(inodes[inode_position])) {
@@ -83,7 +91,6 @@ int parse_path(const char *path, struct dir_data *data, int is_exists) {
 
                     int new_position = find_subdir(inode_position, stack[depth]);
                     if (path[r] == 0 && !is_exists) {
-                        fprintf(stderr, "parse path %s", stack[depth]);
                         if (new_position < 0) {
                             strcpy(data->name_, stack[depth]);
                             data->position_ = inode_position;
@@ -97,10 +104,9 @@ int parse_path(const char *path, struct dir_data *data, int is_exists) {
                         return -ENOENT;
                     }
                     inode_position = new_position;
-                    depth++;
                 }
             }
-            if (path[r] == 0) {
+            if (r == len) {
                 strcpy(data->name_, stack[depth]);
                 data->position_ = inode_position;
                 break;
