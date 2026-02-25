@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "operations.h"
 #include "inode.h"
 #include "errno.h"
@@ -33,7 +34,7 @@ int tmpfs_mkdir(const char *path, mode_t mode) {
     union inode_data inode_data;
     get_empty_dir_data(&inode_data);
     struct inode inode = {
-        {0, mode},
+        {0, 0, mode},
         inode_data,
         0,
         0,
@@ -47,7 +48,7 @@ int tmpfs_mknod(const char *path, mode_t mode, dev_t dev) {
     union inode_data inode_data;
     inode_data.file_data_ = 0;
     struct inode inode = {
-        {0, mode},
+        {0, 0, mode},
         inode_data,
         0,
         0,
@@ -124,6 +125,7 @@ int tmpfs_write(const char *path, const char *buf, size_t size, off_t offset, st
 }
 
 int tmpfs_getattr(const char *path, struct stat *statbuf, struct fuse_file_info *fi) {
+    fprintf(stderr, "Getattr %s\n", path);
     struct dir_data data;
     int res = parse_path(path, &data, 1);
     if (res < 0) {
@@ -131,8 +133,20 @@ int tmpfs_getattr(const char *path, struct stat *statbuf, struct fuse_file_info 
     }
     struct inode *inode = &inodes[data.position_];
     statbuf->st_size = inode->size_;
+    if (IS_DIR((*inode))) {
+        // statbuf->st_size *= sizeof(struct dir_data);
+        statbuf->st_size = 4096;
+    }
+    statbuf->st_blocks = statbuf->st_size / 512;
     statbuf->st_mode = inode->stat_.umask_;
     statbuf->st_uid =  inode->stat_.owner_;
+    statbuf->st_gid = inode->stat_.group_;
+    statbuf->st_atime = 0;
+    statbuf->st_mtime = 0;
+    statbuf->st_ctime = 0;
+    statbuf->st_nlink = 2;
+    statbuf->st_blksize = 0;
+    fprintf(stderr, "getattr end\n");
     return 0;
 }
 

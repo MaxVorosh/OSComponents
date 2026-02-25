@@ -5,6 +5,7 @@
 
 struct inode_stat {
     unsigned int owner_;
+    unsigned int group_;
     unsigned short umask_;
 };
 
