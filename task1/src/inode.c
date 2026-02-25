@@ -17,7 +17,7 @@ int add_start_inode() {
         return res;
     }
     struct inode inode = {
-        {0, 0},
+        {0, 0, 0x03f6},
         data,
         0,
         0,
