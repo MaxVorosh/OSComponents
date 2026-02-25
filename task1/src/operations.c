@@ -112,10 +112,11 @@ int tmpfs_read(const char *path, char *buf, size_t size, off_t offset, struct fu
 }
 
 int tmpfs_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
-    fprintf(stderr, "Write %s\n", path);
+    // fprintf(stderr, "Write %s\n", path);
     struct dir_data data;
     data.name_ = malloc(MAX_PATH);
     if (!data.name_) {
+        fprintf(stderr, "Write not malloc\n");
         return -ENOSPC;
     }
     int res = parse_path(path, &data, 1);
@@ -129,19 +130,23 @@ int tmpfs_write(const char *path, const char *buf, size_t size, off_t offset, st
     if (inode->flags_ & O_RDONLY) {
         return -EBADF;
     }
-    if (offset >= inode->size_) {
+    if (offset > inode->size_) {
         return -ENXIO;
     }
     if (offset < 0) {
         return -EINVAL;
     }
     if (offset + size >= inode->size_) {
-        char *new_ptr = realloc(inode->data_.file_data_, offset + size);
+        unsigned int new_size = offset + size;
+        if (new_size < inode->size_ * 2) {
+            new_size = inode->size_ * 2;
+        }
+        char *new_ptr = realloc(inode->data_.file_data_, new_size);
         if (new_ptr == 0) {
             return -ENOSPC;
         }
         inode->data_.file_data_ = new_ptr;
-        inode->size_ = offset + size;
+        inode->size_ = new_size;
     }
     memcpy(inode->data_.file_data_ + offset, buf, size);
     return size;
