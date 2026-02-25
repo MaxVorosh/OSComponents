@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include "inode.h"
 #include "errno.h"
 
@@ -17,7 +18,7 @@ int add_start_inode() {
         return res;
     }
     struct inode inode = {
-        {0, 0, 0x03f6},
+        {0, 0, S_IFDIR | 0755},
         data,
         0,
         0,
@@ -82,6 +83,7 @@ int parse_path(const char *path, struct dir_data *data, int is_exists) {
 
                     int new_position = find_subdir(inode_position, stack[depth]);
                     if (path[r] == 0 && !is_exists) {
+                        fprintf(stderr, "parse path %s", stack[depth]);
                         if (new_position < 0) {
                             strcpy(data->name_, stack[depth]);
                             data->position_ = inode_position;

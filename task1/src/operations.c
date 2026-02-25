@@ -31,7 +31,7 @@ int add_inode(const char *path, struct inode inode) {
 
     inode.parent_ = data.position_;
     inodes[position] = inode;
-    return position;
+    return 0;
 }
 
 int tmpfs_mkdir(const char *path, mode_t mode) {
@@ -72,7 +72,7 @@ int tmpfs_open(const char *path, struct fuse_file_info *fi) {
     if (!data.name_) {
         return -ENOSPC;
     }
-    int res = parse_path(path, &data, 0);
+    int res = parse_path(path, &data, 1);
     if (res < 0) {
         return res;
     }
