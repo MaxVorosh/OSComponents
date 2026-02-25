@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include "operations.h"
 #include "inode.h"
 #include "errno.h"
@@ -25,6 +26,7 @@ int add_inode(const char *path, struct inode inode) {
     if (parent_inode->size_ == MAX_FILES_IN_DIRECTORY) {
         return -EDQUOT;
     }
+    fprintf(stderr, "Add node success\n");
     struct dir_data new_dir_data = {data.name_, position};
     parent_inode->data_.dir_data_[parent_inode->size_] = new_dir_data;
     parent_inode->size_++;
@@ -39,7 +41,7 @@ int tmpfs_mkdir(const char *path, mode_t mode) {
     union inode_data inode_data;
     get_empty_dir_data(&inode_data);
     struct inode inode = {
-        {0, 0, mode},
+        {getuid(), getgid(), mode},
         inode_data,
         0,
         0,
@@ -54,7 +56,7 @@ int tmpfs_mknod(const char *path, mode_t mode, dev_t dev) {
     union inode_data inode_data;
     inode_data.file_data_ = 0;
     struct inode inode = {
-        {0, 0, mode},
+        {getuid(), getgid(), mode},
         inode_data,
         0,
         0,
@@ -155,6 +157,7 @@ int tmpfs_getattr(const char *path, struct stat *statbuf, struct fuse_file_info 
     }
     int res = parse_path(path, &data, 1);
     if (res < 0) {
+        fprintf(stderr, "getattr err %d", res);
         return res;
     }
     struct inode *inode = &inodes[data.position_];
