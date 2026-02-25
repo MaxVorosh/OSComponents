@@ -30,7 +30,7 @@ struct fuse_operations tmpfs_oper = {
   .read = tmpfs_read,
   .write = tmpfs_write,
 
-  .statfs = NULL,
+  .statfs = tmpfs_statfs,
   .flush = NULL,
   .release = NULL,
   .fsync = NULL,

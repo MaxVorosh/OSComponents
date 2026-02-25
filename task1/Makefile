@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Iinclude -Wall -Werror -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=30
+CFLAGS = -Iinclude -Wall -Werror -D_FILE_OFFSET_BITS=64 -DFUSE_USE_VERSION=30 -g
 LDFLAGS = `pkg-config fuse3 --libs`
 PKG_CFLAGS = `pkg-config fuse3 --cflags`
 

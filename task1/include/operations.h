@@ -17,5 +17,6 @@ int tmpfs_rmdir(const char *path);
 int tmpfs_unlink(const char *path);
 void tmpfs_destroy(void *userdata);
 void destroy_recursive(int inode_position);
+int tmpfs_statfs(const char *path, struct statvfs *statv);
 
 #endif

@@ -187,3 +187,17 @@ void destroy_recursive(int inode_position) {
     }
     free(inode.data_.dir_data_);
 }
+
+int tmpfs_statfs(const char *path, struct statvfs *statv) {
+    statv->f_bsize = 4096;
+    int free_nodes = 0;
+    for (int i = 0; i < MAX_INODES; ++i) {
+        if (!IS_USED(inodes[i])) {
+            free_nodes++;
+        }
+    }
+    statv->f_files = MAX_INODES;
+    statv->f_ffree = free_nodes;
+    statv->f_namemax = MAX_PATH;
+    return 0;
+}
