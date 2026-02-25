@@ -5,12 +5,6 @@
 #include "inode.h"
 #include "operations.h"
 
-void tmpfs_usage()
-{
-    fprintf(stderr, "usage:  tmpfs [FUSE and mount options] rootDir mountPoint\n");
-    abort();
-}
-
 struct fuse_operations tmpfs_oper = {
   .getattr = tmpfs_getattr,
   .readlink = NULL,
@@ -68,13 +62,9 @@ int main(int argc, char *argv[])
     // start with a hyphen (this will break if you actually have a
     // rootpoint or mountpoint whose name starts with a hyphen, but so
     // will a zillion other programs)
-    if ((argc < 3) || (argv[argc-2][0] == '-') || (argv[argc-1][0] == '-'))
-	  tmpfs_usage();
 
-    char* rootdir = realpath(argv[argc-2], NULL);
-    argv[argc-2] = argv[argc-1];
-    argv[argc-1] = NULL;
-    argc--;
+
+    char* rootdir = realpath(argv[argc-1], NULL);
     int res = add_start_inode();
     if (res < 0) {
         perror("Cannot allocate memory for start inode");

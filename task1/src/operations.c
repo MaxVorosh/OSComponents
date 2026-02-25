@@ -157,7 +157,7 @@ int tmpfs_getattr(const char *path, struct stat *statbuf, struct fuse_file_info 
     }
     int res = parse_path(path, &data, 1);
     if (res < 0) {
-        fprintf(stderr, "getattr err %d", res);
+        fprintf(stderr, "getattr err %d\n", res);
         return res;
     }
     struct inode *inode = &inodes[data.position_];
