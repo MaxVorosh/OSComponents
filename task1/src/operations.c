@@ -255,6 +255,13 @@ int tmpfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t off
 
 int tmpfs_chmod(const char *path, mode_t mode, struct fuse_file_info *fi) {
     fprintf(stderr, "chmod %s", path);
+    struct dir_data data;
+    int res = parse_path(path, &data, 1);
+    if (res < 0) {
+        return res;
+    }
+    struct inode *inode = &inodes[data.position_];
+    inode->stat_.umask_ = mode | (S_IFMT & inode->stat_.umask_);
     return 0;
 }
 
