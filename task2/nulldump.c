@@ -11,24 +11,28 @@ MODULE_VERSION("0.1");
 
 #define DEVICE_NAME "nulldump"
 #define CLASS_NAME  "nulldump_class"
-#define HEXDUMP_LEN 32
+#define HEXDUMP_LEN 16
 
 static dev_t dev;
 static struct cdev chrdev_cdev;
 static struct class *chrdev_class;
 static struct device *sdev;
 
-void hexdump(const void *buf)
+void hexdump(const void *buf, size_t len, size_t line)
 {
-	for (int i = 0; i < HEXDUMP_LEN; i++) {
-		if (!(i % 16)) {
-			if (i)
-				pr_info("\n");
+	char result_buf[HEXDUMP_LEN * 3 + 9];
+	size_t offset = 0;
+	offset += sprintf(result_buf, "%07x ", line);
+	for (int i = 0; i < len; i+=2) {
+		int cur = ((uint8_t *)(buf))[i];
+		int next = 0;
+		if (i + 1 < len) {
+			next = ((uint8_t *)(buf))[i + 1];
 		}
-		if (i && !(i % 8) && (i % 16))
-			pr_info("\t");
-		pr_info("%02X ", ((uint8_t *)(buf))[i]);
+		offset += sprintf(result_buf + offset, "%02x", next);
+		offset += sprintf(result_buf + offset, "%02x ", cur);
 	}
+	pr_info("%s\n", result_buf);
 }
 
 static ssize_t nulldump_read(struct file *file, char __user *buf, size_t len, loff_t *off)
@@ -50,8 +54,9 @@ static ssize_t nulldump_write(struct file *file, const char __user *buf, size_t 
 		if (result != 0) {
 			return -EFAULT;
 		}
-		hexdump(data);
+		hexdump(data, bytes_to_copy, i);
 	}
+	hexdump(NULL, 0, len);
 	return len;
 }
 
