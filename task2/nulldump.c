@@ -18,11 +18,11 @@ static struct cdev chrdev_cdev;
 static struct class *chrdev_class;
 static struct device *sdev;
 
-void hexdump(const void *buf, size_t len, size_t line)
+static void hexdump(const void *buf, size_t len, size_t line)
 {
 	char result_buf[HEXDUMP_LEN * 3 + 9];
 	size_t offset = 0;
-	offset += sprintf(result_buf, "%07x ", line);
+	offset += sprintf(result_buf, "%07zx ", line);
 	for (int i = 0; i < len; i+=2) {
 		int cur = ((uint8_t *)(buf))[i];
 		int next = 0;
@@ -37,20 +37,20 @@ void hexdump(const void *buf, size_t len, size_t line)
 
 static ssize_t nulldump_read(struct file *file, char __user *buf, size_t len, loff_t *off)
 {
-	pr_info("nulldump: read with size=%d by pid=%d (%s)\n", len, current->pid, current->comm);
+	pr_info("nulldump: read with size=%zu by pid=%d (%s)\n", len, current->pid, current->comm);
 	return 0;
 }
 
 static ssize_t nulldump_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
 {
-	pr_info("chrdev: write with size=%d by pid=%d (%s)\n", len, current->pid, current->comm);
+	pr_info("nulldump: write with size=%zu by pid=%d (%s)\n", len, current->pid, current->comm);
 	const char* data[HEXDUMP_LEN];
 	int bytes_to_copy = HEXDUMP_LEN;
 	for (int i = 0; i < len; i+=HEXDUMP_LEN) {
 		if (i + HEXDUMP_LEN >= len) {
 			bytes_to_copy = len - i;
 		}
-		int result = copy_from_user(data, buf + i, len);
+		int result = copy_from_user(data, buf + i, bytes_to_copy);
 		if (result != 0) {
 			return -EFAULT;
 		}
