@@ -15,14 +15,14 @@ MODULE_VERSION("0.1");
 static struct class *membuf_class;
 static dev_t module_dev;
 
-static size_t base_device_size = 4096;
-static size_t devices_number = 1;
-static const size_t MAX_DEVICES = 16;
+static int base_device_size = 4096;
+static int devices_number = 1;
+#define MAX_DEVICES 16
 
-static struct device_info {
-	static struct cdev cdev;
-	static struct device *sdev;
-	static dev_t dev;
+struct device_info {
+	struct cdev cdev;
+	struct device *sdev;
+	dev_t dev;
 
 	char* data;
 	size_t size;
@@ -31,19 +31,21 @@ static struct device_info {
 	atomic_t opened_by;
 };
 
-static device_info devices[MAX_DEVICES];
+static struct device_info devices[MAX_DEVICES];
 static DEFINE_MUTEX(global_lock);
 
 static int create_membuf_device(int minor);
 static void destroy_membuf_device(int minor);
 
-static ssize_t devices_number_show(char *buffer, struct kernel_param *kp) {
-    return sprintf(buf, "%d\n", devices_number);
+static int devices_number_show(char *buffer, const struct kernel_param *kp) {
+    // return sprintf(buf, "%d\n", devices_number);
+	return 0;
 }
 
-static ssize_t devices_number_store(const char *val, struct kernel_param *kp) {
-    sscanf(buf, "%du", &devices_number);
-    return count;
+static int devices_number_store(const char *val, const struct kernel_param *kp) {
+    // sscanf(buf, "%du", &devices_number);
+    // return count;
+	return 0;
 }
 
 static struct kernel_param_ops devices_number_ops = {
@@ -51,8 +53,12 @@ static struct kernel_param_ops devices_number_ops = {
 	.set = devices_number_store
 };
 
-static ssize_t size_show(struct device *dev, struct device_attribute *attr, const char *buf) {}
-static ssize_t size_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {}
+static ssize_t size_show(struct device *dev, struct device_attribute *attr, char *buf) {
+	return 1;
+}
+static ssize_t size_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
+	return 0;
+}
 
 module_param(base_device_size, int, 0644);
 module_param_cb(devices_number, &devices_number_ops, &devices_number, 0644);
@@ -79,7 +85,7 @@ static const struct file_operations membuf_fops = {
 static int create_membuf_device(int minor) {
 	dev_t dev = MKDEV(MAJOR(module_dev), minor);
 	devices[minor].dev = dev;
-	devices[minor].data = kzalloc(base_device_size, GPF_KERNEL);
+	devices[minor].data = kzalloc(base_device_size, GFP_KERNEL);
 	if (!devices[minor].data) {
 		return -ENOMEM;
 	}
@@ -107,20 +113,20 @@ static int create_membuf_device(int minor) {
 	return 0;
 
 delete_cdev:
-	cdev_del(devices[minor].cdev);
+	cdev_del(&devices[minor].cdev);
 free_buffer:
 	kfree(devices[minor].data);
-	return ret
+	return ret;
 }
 
 static void destroy_membuf_device(int minor) {
 	if (!devices[minor].data) {
 		return;
 	}
-	device_destroy(devices[minor].dev);
+	device_destroy(membuf_class, devices[minor].dev);
 	cdev_del(&devices[minor].cdev);
 	kfree(devices[minor].data);
-	devices[minor] = NULL;
+	devices[minor].data = NULL;
 }
 
 static int __init membuf_init(void)
@@ -153,6 +159,9 @@ static int __init membuf_init(void)
 			pr_err("membuf: failed to create device %d\n", device_id);
 			goto delete_devices;
 		}
+	}
+	for (int i = devices_number; i < MAX_DEVICES; ++i) {
+		devices[i].data = NULL;
 	}
 	return 0;
 
