@@ -26,6 +26,7 @@ struct device_info {
 
 	char* data;
 	size_t size;
+	int creating;
 
 	struct rw_semaphore lock;
 	atomic_t opened_by;
@@ -38,14 +39,80 @@ static int create_membuf_device(int minor);
 static void destroy_membuf_device(int minor);
 
 static int devices_number_show(char *buffer, const struct kernel_param *kp) {
-    // return sprintf(buf, "%d\n", devices_number);
+    return sprintf(buffer, "%d\n", devices_number);
+}
+
+static int upscale_devices(int new_count, const struct kernel_param *kp) {
+	int ret;
+	for (int i = 0; i < MAX_DEVICES; ++i) {
+		if (devices[i].data) {
+			ret = create_membuf_device(i);
+			if (ret < 0) {
+				pr_err("membuf: cannot create device");
+				goto delete_created;
+			}
+			devices[i].creating = 1;
+		}
+	}
+	for (int i = 0; i < MAX_DEVICES; ++i) {
+		devices[i].creating = 0;
+	}
+	return 0;
+
+delete_created:
+	for (int i = 0; i < MAX_DEVICES; ++i) {
+		if (devices[i].creating) {
+			destroy_membuf_device(i);
+		}
+	}
+	return ret;
+}
+
+static int downscale_devices(int new_count, const struct kernel_param *kp) {
+	int busy_devices = 0;
+	for (int i = 0; i < MAX_DEVICES; ++i) {
+		if (!devices[i].data) {
+			busy_devices++;
+		}
+	}
+	if (busy_devices > new_count) {
+		return -EBUSY;
+	}
+
+	for (int i = 0; i < MAX_DEVICES; ++i) {
+		if (!devices[i].data) {
+			destroy_membuf_device(i);
+		}
+	}
 	return 0;
 }
 
 static int devices_number_store(const char *val, const struct kernel_param *kp) {
-    // sscanf(buf, "%du", &devices_number);
-    // return count;
-	return 0;
+    int new_count;
+    int ret = kstrtoint(val, 0, &new_count);
+    if (ret) {
+        return ret;
+    }
+    if (new_count < 0 || new_count > MAX_DEVICES) {
+        return -EINVAL;
+    }
+
+	mutex_lock(&global_lock);
+	if (new_count == devices_number) {
+		mutex_unlock(&global_lock);
+		return 0;
+	}
+	if (new_count < devices_number) {
+		ret = upscale_devices(new_count, kp);
+	}
+	else {
+		ret = downscale_devices(new_count, kp);
+	}
+	if (ret == 0) {
+		*(int*)kp->arg = new_count;
+	}
+	mutex_unlock(&global_lock);
+	return ret;
 }
 
 static struct kernel_param_ops devices_number_ops = {
@@ -53,16 +120,48 @@ static struct kernel_param_ops devices_number_ops = {
 	.set = devices_number_store
 };
 
-static ssize_t size_show(struct device *dev, struct device_attribute *attr, char *buf) {
-	return 1;
+static ssize_t device_size_show(struct device *dev, struct device_attribute *attr, char *buf) {
+	struct device_info *info = dev_get_drvdata(dev);
+	if (down_read_interruptible(&info->lock)) {
+		return -ERESTARTSYS;
+	}
+	ssize_t ret = sprintf(buf, "%zu\n", info->size);
+	up_read(&info->lock);
+	return ret;
 }
-static ssize_t size_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
-	return 0;
+static ssize_t device_size_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count) {
+	struct device_info *info = dev_get_drvdata(dev);
+	int new_size;
+    int ret = kstrtoint(buf, 0, &new_size);
+    if (ret) {
+        return ret;
+    }
+    if (new_size <= 0) {
+        return -EINVAL;
+    }
+	if (down_write_killable(&info->lock)) {
+		return -ERESTARTSYS;
+	}
+	if (atomic_read(&info->opened_by) > 0) {
+		up_write(&info->lock);
+		return -EBUSY;
+	}
+	char *new_data = kzalloc(new_size, GFP_KERNEL);
+	if (!new_data) {
+		up_write(&info->lock);
+		return -ENOMEM;
+	}
+	memcpy(new_data, info->data, min(info->size, (size_t)new_size));
+	kfree(info->data);
+	info->data = new_data;
+	info->size = new_size;
+	up_write(&info->lock);
+	return count;
 }
 
 module_param(base_device_size, int, 0644);
 module_param_cb(devices_number, &devices_number_ops, &devices_number, 0644);
-DEVICE_ATTR(size, 0644, size_show, size_store);
+DEVICE_ATTR(size, 0644, device_size_show, device_size_store);
 
 static ssize_t membuf_read(struct file *file, char __user *buf, size_t len, loff_t *off)
 {
@@ -92,6 +191,7 @@ static int create_membuf_device(int minor) {
 	devices[minor].size = base_device_size;
 	init_rwsem(&devices[minor].lock);
 	atomic_set(&devices[minor].opened_by, 0);
+	devices[minor].creating = false;
 
 	cdev_init(&devices[minor].cdev, &membuf_fops);
 	devices[minor].cdev.owner = THIS_MODULE;
@@ -110,6 +210,7 @@ static int create_membuf_device(int minor) {
 		device_destroy(membuf_class, devices[minor].dev);
 		goto delete_cdev;
 	}
+	pr_info("Membuf device #%d created", minor);
 	return 0;
 
 delete_cdev:
@@ -127,6 +228,7 @@ static void destroy_membuf_device(int minor) {
 	cdev_del(&devices[minor].cdev);
 	kfree(devices[minor].data);
 	devices[minor].data = NULL;
+	devices[minor].creating = 0;
 }
 
 static int __init membuf_init(void)
@@ -162,7 +264,9 @@ static int __init membuf_init(void)
 	}
 	for (int i = devices_number; i < MAX_DEVICES; ++i) {
 		devices[i].data = NULL;
+		devices[i].creating = false;
 	}
+	pr_info("membuf: module loaded");
 	return 0;
 
 delete_devices:
