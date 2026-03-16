@@ -103,10 +103,10 @@ static int devices_number_store(const char *val, const struct kernel_param *kp) 
 		return 0;
 	}
 	if (new_count < devices_number) {
-		ret = upscale_devices(new_count, kp);
+		ret = upscale_devices(new_count);
 	}
 	else {
-		ret = downscale_devices(new_count, kp);
+		ret = downscale_devices(new_count);
 	}
 	if (ret == 0) {
 		*(int*)kp->arg = new_count;
