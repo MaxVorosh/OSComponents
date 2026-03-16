@@ -76,17 +76,22 @@ delete_created:
 static int downscale_devices(int new_count) {
 	int busy_devices = 0;
 	for (int i = 0; i < MAX_DEVICES; ++i) {
-		if (!devices[i].data) {
+		if (devices[i].data && atomic_read(&devices[i].opened_by) > 0) {
 			busy_devices++;
 		}
 	}
 	if (busy_devices > new_count) {
 		return -EBUSY;
 	}
-
+	int destroyed_devices = 0;
 	for (int i = 0; i < MAX_DEVICES; ++i) {
-		if (!devices[i].data) {
+		// We are under global lock, so opened by cannot increase between 79 and 89 lines
+		if (devices[i].data && atomic_read(&devices[i].opened_by) == 0) {
 			destroy_membuf_device(i);
+			destroyed_devices++;
+			if (destroyed_devices + new_count == devices_number) {
+				break;
+			}
 		}
 	}
 	return 0;
@@ -285,6 +290,7 @@ static void destroy_membuf_device(int minor) {
 	kfree(devices[minor].data);
 	devices[minor].data = NULL;
 	devices[minor].creating = 0;
+	pr_info("membuf: device #%d destroyed", minor);
 }
 
 static int __init membuf_init(void)
