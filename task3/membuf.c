@@ -44,6 +44,7 @@ static int devices_number_show(char *buffer, const struct kernel_param *kp) {
 
 static int upscale_devices(int new_count) {
 	int ret;
+	int created_devices = devices_number;
 	for (int i = 0; i < MAX_DEVICES; ++i) {
 		if (!devices[i].data) {
 			ret = create_membuf_device(i);
@@ -52,6 +53,10 @@ static int upscale_devices(int new_count) {
 				goto delete_created;
 			}
 			devices[i].creating = 1;
+			created_devices++;
+			if (created_devices == new_count) {
+				break;
+			}
 		}
 	}
 	for (int i = 0; i < MAX_DEVICES; ++i) {
@@ -102,7 +107,7 @@ static int devices_number_store(const char *val, const struct kernel_param *kp) 
 		mutex_unlock(&global_lock);
 		return 0;
 	}
-	if (new_count < devices_number) {
+	if (new_count > devices_number) {
 		ret = upscale_devices(new_count);
 	}
 	else {
