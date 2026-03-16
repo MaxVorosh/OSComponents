@@ -6,7 +6,7 @@
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("MaxVorosh");
-MODULE_DESCRIPTION("/dev/null with dumps");
+MODULE_DESCRIPTION("number of data buffers");
 MODULE_VERSION("0.1");
 
 #define DEVICE_NAME "membuf"
@@ -42,7 +42,7 @@ static int devices_number_show(char *buffer, const struct kernel_param *kp) {
     return sprintf(buffer, "%d\n", devices_number);
 }
 
-static int upscale_devices(int new_count, const struct kernel_param *kp) {
+static int upscale_devices(int new_count) {
 	int ret;
 	for (int i = 0; i < MAX_DEVICES; ++i) {
 		if (devices[i].data) {
@@ -68,7 +68,7 @@ delete_created:
 	return ret;
 }
 
-static int downscale_devices(int new_count, const struct kernel_param *kp) {
+static int downscale_devices(int new_count) {
 	int busy_devices = 0;
 	for (int i = 0; i < MAX_DEVICES; ++i) {
 		if (!devices[i].data) {
@@ -93,7 +93,7 @@ static int devices_number_store(const char *val, const struct kernel_param *kp) 
     if (ret) {
         return ret;
     }
-    if (new_count < 0 || new_count > MAX_DEVICES) {
+    if (new_count <= 0 || new_count > MAX_DEVICES) {
         return -EINVAL;
     }
 
