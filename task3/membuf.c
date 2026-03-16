@@ -261,7 +261,7 @@ static int create_membuf_device(int minor) {
 		device_destroy(membuf_class, devices[minor].dev);
 		goto delete_cdev;
 	}
-	pr_info("Membuf device #%d created", minor);
+	pr_info("membuf: device #%d created", minor);
 	return 0;
 
 delete_cdev:
@@ -298,7 +298,7 @@ static int __init membuf_init(void)
 		pr_err("membuf: failed to allocate region\n");
 		return ret;
 	}
-	membuf_class = class_create("membuf");
+	membuf_class = class_create(CLASS_NAME);
 	if (IS_ERR(membuf_class)) {
 		ret = PTR_ERR(membuf_class);
 		pr_err("membuf: failed to create class\n");
