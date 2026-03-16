@@ -163,22 +163,73 @@ module_param(base_device_size, int, 0644);
 module_param_cb(devices_number, &devices_number_ops, &devices_number, 0644);
 DEVICE_ATTR(size, 0644, device_size_show, device_size_store);
 
+static int membuf_open(struct inode *inode, struct file *file) {
+	struct device_info *info = container_of(inode->i_cdev, struct device_info, cdev);
+	mutex_lock(&global_lock); // To avoid situation, where we a trying to open deleting device
+	atomic_inc(&info->opened_by);
+	mutex_unlock(&global_lock);
+	file->private_data = info;
+	pr_info("membuf: opened device");
+	return 0;
+}
+
+static int membuf_release(struct inode *inode, struct file *file) {
+	struct device_info *info = file->private_data;
+	// No lock, because we cannot delete an open file
+	atomic_dec(&info->opened_by);
+	pr_info("membuf: released device");
+	return 0;
+}
+
 static ssize_t membuf_read(struct file *file, char __user *buf, size_t len, loff_t *off)
 {
-	
-	return 0;
+	struct device_info *info = file->private_data;
+	if (!down_read_interruptible(&info->lock)) {
+		return -ERESTARTSYS;
+	}
+	if (*off >= info->size) {
+		up_read(&info->lock);
+		return 0;
+	}
+	size_t read_size = min(len, info->size - *off);
+	if (copy_to_user(buf, info->data + *off, read_size)) {
+		up_read(&info->lock);
+		return -EFAULT;
+	}
+	*off += read_size;
+	up_read(&info->lock);
+	return read_size;
 }
 
 static ssize_t membuf_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
 {
-	
-	return len;
+	struct device_info *info = file->private_data;
+	if (len == 0) {
+		return 0;
+	}
+	if (!down_write_killable(&info->lock)) {
+		return -ERESTARTSYS;
+	}
+	if (*off >= info->size) {
+		up_write(&info->lock);
+		return -ENOSPC;
+	}
+	size_t write_size = min(len, info->size - *off);
+	if (copy_from_user(info->data + *off, buf, write_size)) {
+		up_write(&info->lock);
+		return -EFAULT;
+	}
+	*off += write_size;
+	up_write(&info->lock);
+	return write_size;
 }
 
 static const struct file_operations membuf_fops = {
-	.owner  = THIS_MODULE,
-	.read   = membuf_read,
-	.write  = membuf_write,
+	.owner   = THIS_MODULE,
+	.open    = membuf_open,
+	.release = membuf_release,
+	.read    = membuf_read,
+	.write   = membuf_write,
 };
 
 static int create_membuf_device(int minor) {
