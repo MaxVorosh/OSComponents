@@ -45,7 +45,7 @@ static int devices_number_show(char *buffer, const struct kernel_param *kp) {
 static int upscale_devices(int new_count) {
 	int ret;
 	for (int i = 0; i < MAX_DEVICES; ++i) {
-		if (devices[i].data) {
+		if (!devices[i].data) {
 			ret = create_membuf_device(i);
 			if (ret < 0) {
 				pr_err("membuf: cannot create device");
