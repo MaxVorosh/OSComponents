@@ -179,7 +179,6 @@ static int membuf_open(struct inode *inode, struct file *file) {
 	atomic_inc(&info->opened_by);
 	mutex_unlock(&global_lock);
 	file->private_data = info;
-	pr_info("membuf: opened device");
 	return 0;
 }
 
@@ -187,7 +186,6 @@ static int membuf_release(struct inode *inode, struct file *file) {
 	struct device_info *info = file->private_data;
 	// No lock, because we cannot delete an open file
 	atomic_dec(&info->opened_by);
-	pr_info("membuf: released device");
 	return 0;
 }
 
@@ -271,7 +269,7 @@ static int create_membuf_device(int minor) {
 		device_destroy(membuf_class, devices[minor].dev);
 		goto delete_cdev;
 	}
-	pr_info("membuf: device #%d created", minor);
+	pr_info("membuf: device %d:%d created", MAJOR(module_dev), minor);
 	return 0;
 
 delete_cdev:
