@@ -194,7 +194,7 @@ static int membuf_release(struct inode *inode, struct file *file) {
 static ssize_t membuf_read(struct file *file, char __user *buf, size_t len, loff_t *off)
 {
 	struct device_info *info = file->private_data;
-	if (!down_read_interruptible(&info->lock)) {
+	if (down_read_interruptible(&info->lock)) {
 		return -ERESTARTSYS;
 	}
 	if (*off >= info->size) {
@@ -217,7 +217,7 @@ static ssize_t membuf_write(struct file *file, const char __user *buf, size_t le
 	if (len == 0) {
 		return 0;
 	}
-	if (!down_write_killable(&info->lock)) {
+	if (down_write_killable(&info->lock)) {
 		return -ERESTARTSYS;
 	}
 	if (*off >= info->size) {
