@@ -245,6 +245,7 @@ static ssize_t pipebuf_read(struct file *file, char __user *buf, size_t len, lof
 	if (info->data.head == info->data.tail) {
 		info->empty = 1;
 	}
+	wake_up(&write_wait_queue);
 	mutex_unlock(&info->lock);
 	return read_size;
 }
@@ -258,7 +259,7 @@ static ssize_t pipebuf_write(struct file *file, const char __user *buf, size_t l
 	mutex_lock(&info->lock);
 	while (!info->empty && CIRC_SPACE(info->data.head, info->data.tail, info->size) > 0) {
 		mutex_unlock(&info->lock);
-		if (!wait_event_interruptible(read_wait_queue, info->empty || CIRC_SPACE(info->data.head, info->data.tail, info->size) > 0)) {
+		if (!wait_event_interruptible(write_wait_queue, info->empty || CIRC_SPACE(info->data.head, info->data.tail, info->size) > 0)) {
 			return -ERESTARTSYS;
 		}
 		mutex_lock(&info->lock);
@@ -280,6 +281,7 @@ static ssize_t pipebuf_write(struct file *file, const char __user *buf, size_t l
 	info->data.tail += write_size;
 	info->data.tail %= info->size;
 	info->empty = 1;
+	wake_up(&read_wait_queue);
 	mutex_unlock(&info->lock);
 	return write_size;
 }
