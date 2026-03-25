@@ -257,7 +257,7 @@ static ssize_t pipebuf_write(struct file *file, const char __user *buf, size_t l
 		return 0;
 	}
 	mutex_lock(&info->lock);
-	while (!info->empty && CIRC_SPACE(info->data.head, info->data.tail, info->size) > 0) {
+	while (!info->empty && CIRC_SPACE(info->data.head, info->data.tail, info->size) == 0) {
 		mutex_unlock(&info->lock);
 		if (!wait_event_interruptible(write_wait_queue, info->empty || CIRC_SPACE(info->data.head, info->data.tail, info->size) > 0)) {
 			return -ERESTARTSYS;
