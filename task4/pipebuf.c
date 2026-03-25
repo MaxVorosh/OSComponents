@@ -270,11 +270,11 @@ static ssize_t pipebuf_write(struct file *file, const char __user *buf, size_t l
 	}
 	size_t end_fragment = min(info->size - 1 - info->data.tail, write_size);
 	size_t begin_fragment = write_size - end_fragment;
-	if (end_fragment > 0 && copy_to_user(info->data.buf + info->data.tail, buf, end_fragment)) {
+	if (end_fragment > 0 && copy_from_user(info->data.buf + info->data.tail, buf, end_fragment)) {
 		mutex_unlock(&info->lock);
 		return -EFAULT;
 	}
-	if (begin_fragment > 0 && copy_to_user(info->data.buf, buf, begin_fragment)) {
+	if (begin_fragment > 0 && copy_from_user(info->data.buf, buf, begin_fragment)) {
 		mutex_unlock(&info->lock);
 		return -EFAULT;
 	}
