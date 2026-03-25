@@ -3,6 +3,7 @@
 #include <linux/init.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
+#include <linux/circ_buf.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("MaxVorosh");
@@ -184,8 +185,8 @@ static ssize_t device_size_store(struct device *dev, struct device_attribute *at
 	}
 	kfree(info->data.buf);
 	info->data.buf = new_data;
-	info->data.buf.head = 0;
-	info->data.buf.tail = min(current_size, (size_t)new_size) % new_size;
+	info->data.head = 0;
+	info->data.tail = min(current_size, (size_t)new_size) % new_size;
 	info->size = new_size;
 	mutex_unlock(&info->lock);
 	return count;
@@ -195,7 +196,7 @@ module_param(base_device_size, int, 0644);
 module_param_cb(devices_number, &devices_number_ops, &devices_number, 0644);
 DEVICE_ATTR(size, 0644, device_size_show, device_size_store);
 
-static int pipiebuf_open(struct inode *inode, struct file *file) {
+static int pipebuf_open(struct inode *inode, struct file *file) {
 	struct device_info *info = container_of(inode->i_cdev, struct device_info, cdev);
 	mutex_lock(&global_lock); // To avoid situation, where we a trying to open deleting device
 	atomic_inc(&info->opened_by);
@@ -255,24 +256,24 @@ static ssize_t pipebuf_write(struct file *file, const char __user *buf, size_t l
 		return 0;
 	}
 	mutex_lock(&info->lock);
-	while (!info->empty && CIRC_SIZE(info->data.head, info->data.tail, info->size) > 0) {
+	while (!info->empty && CIRC_SPACE(info->data.head, info->data.tail, info->size) > 0) {
 		mutex_unlock(&info->lock);
-		if (!wait_event_interruptible(read_wait_queue, info->empty || CIRC_SIZE(info->data.head, info->data.tail, info->size) > 0)) {
+		if (!wait_event_interruptible(read_wait_queue, info->empty || CIRC_SPACE(info->data.head, info->data.tail, info->size) > 0)) {
 			return -ERESTARTSYS;
 		}
 		mutex_lock(&info->lock);
 	}
-	size_t write_size = min(len, CIRC_SIZE(info->data.head, info->data.tail, info->size));
+	size_t write_size = min(len, CIRC_SPACE(info->data.head, info->data.tail, info->size));
 	if (write_size == 0) {
 		write_size = min(len, info->size);
 	}
 	size_t end_fragment = min(info->size - 1 - info->data.tail, write_size);
 	size_t begin_fragment = write_size - end_fragment;
-	if (end_fragment > 0 && copy_to_user(buf, info->data.buf + info->data.tail, end_fragment)) {
+	if (end_fragment > 0 && copy_to_user(info->data.buf + info->data.tail, buf, end_fragment)) {
 		mutex_unlock(&info->lock);
 		return -EFAULT;
 	}
-	if (begin_fragment > 0 && copy_to_user(buf, info->data.buf, begin_fragment)) {
+	if (begin_fragment > 0 && copy_to_user(info->data.buf, buf, begin_fragment)) {
 		mutex_unlock(&info->lock);
 		return -EFAULT;
 	}
@@ -302,7 +303,7 @@ static int create_pipebuf_device(int minor) {
 	devices[minor].data.tail = 0;
 	devices[minor].empty = 1;
 	devices[minor].size = base_device_size;
-	init_mutex(&devices[minor].lock);
+	mutex_init(&devices[minor].lock);
 	atomic_set(&devices[minor].opened_by, 0);
 	devices[minor].creating = false;
 
@@ -352,7 +353,7 @@ static int __init pipebuf_init(void)
 		return -EINVAL;
 	}
 	if (base_device_size <= 0) {
-		pr_err("pipiebuf: incorrect device size\n");
+		pr_err("pipebuf: incorrect device size\n");
 		return -EINVAL;
 	}
 	int ret;
