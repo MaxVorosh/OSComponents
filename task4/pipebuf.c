@@ -35,6 +35,8 @@ struct device_info {
 
 	struct mutex lock;
 	atomic_t opened_by;
+	atomic_t readers;
+	atomic_t writers;
 };
 
 static struct device_info devices[MAX_DEVICES];
@@ -200,6 +202,16 @@ static int pipebuf_open(struct inode *inode, struct file *file) {
 	struct device_info *info = container_of(inode->i_cdev, struct device_info, cdev);
 	mutex_lock(&global_lock); // To avoid situation, where we a trying to open deleting device
 	atomic_inc(&info->opened_by);
+	if (file->f_mode & FMODE_READ) {
+		if (atomic_read(&info->readers) == 1) {
+			mutex_unlock(&global_lock);
+			return -EACCES;
+		}
+		atomic_inc(&info->readers);
+	}
+	if (file->f_mode & FMODE_WRITE) {
+		atomic_inc(&info->writers);
+	}
 	mutex_unlock(&global_lock);
 	file->private_data = info;
 	return 0;
@@ -209,6 +221,12 @@ static int pipebuf_release(struct inode *inode, struct file *file) {
 	struct device_info *info = file->private_data;
 	// No lock, because we cannot delete an open file
 	atomic_dec(&info->opened_by);
+	if (file->f_mode & FMODE_READ) {
+		atomic_dec(&info->readers);
+	}
+	if (file->f_mode & FMODE_WRITE) {
+		atomic_dec(&info->writers);
+	}
 	return 0;
 }
 
@@ -220,8 +238,12 @@ static ssize_t pipebuf_read(struct file *file, char __user *buf, size_t len, lof
 	}
 	mutex_lock(&info->lock);
 	while (info->empty) {
+		if (atomic_read(&info->writers) == 0) {
+			mutex_unlock(&info->lock);
+			return 0;
+		}
 		mutex_unlock(&info->lock);
-		if (wait_event_interruptible(read_wait_queue, !info->empty)) {
+		if (wait_event_interruptible(read_wait_queue, !info->empty || atomic_read(&info->writers) == 0)) {
 			return -ERESTARTSYS;
 		}
 		mutex_lock(&info->lock);
