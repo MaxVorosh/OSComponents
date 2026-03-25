@@ -280,7 +280,7 @@ static ssize_t pipebuf_write(struct file *file, const char __user *buf, size_t l
 	}
 	info->data.tail += write_size;
 	info->data.tail %= info->size;
-	info->empty = 1;
+	info->empty = 0;
 	wake_up(&read_wait_queue);
 	mutex_unlock(&info->lock);
 	return write_size;
