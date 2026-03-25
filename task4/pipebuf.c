@@ -167,16 +167,16 @@ static ssize_t device_size_store(struct device *dev, struct device_attribute *at
 		if (current_size == 0) {
 			current_size = info->size;
 		}
-		if (info->data.head < info->data.tail) {
+		if (info->data.head > info->data.tail) {
 			// Simple case
-			memcpy(new_data, info->data.buf + info->data.head, min(current_size, (size_t)new_size));
+			memcpy(new_data, info->data.buf + info->data.tail, min(current_size, (size_t)new_size));
 		}
 		else {
-			size_t end_fragment = min(info->size - 1 - info->data.head, current_size);
+			size_t end_fragment = min(info->size - 1 - info->data.tail, current_size);
 			size_t begin_fragment = current_size - end_fragment;
 			size_t write_first_batch = min(end_fragment, (size_t)new_size);
 			if (end_fragment > 0) {
-				memcpy(new_data, info->data.buf + info->data.head, write_first_batch);
+				memcpy(new_data, info->data.buf + info->data.tail, write_first_batch);
 			}
 			if (begin_fragment > 0 && new_size > end_fragment) {
 				memcpy(new_data + write_first_batch, info->data.buf, min(begin_fragment, (size_t)(new_size - end_fragment)));
@@ -185,8 +185,8 @@ static ssize_t device_size_store(struct device *dev, struct device_attribute *at
 	}
 	kfree(info->data.buf);
 	info->data.buf = new_data;
-	info->data.head = 0;
-	info->data.tail = min(current_size, (size_t)new_size) % new_size;
+	info->data.tail = 0;
+	info->data.head = min(current_size, (size_t)new_size) % new_size;
 	info->size = new_size;
 	mutex_unlock(&info->lock);
 	return count;
@@ -230,9 +230,9 @@ static ssize_t pipebuf_read(struct file *file, char __user *buf, size_t len, lof
 	if (read_size == 0) {
 		read_size = min(len, info->size);
 	}
-	size_t end_fragment = min(info->size - 1 - info->data.head, read_size);
+	size_t end_fragment = min(info->size - 1 - info->data.tail, read_size);
 	size_t begin_fragment = read_size - end_fragment;
-	if (end_fragment > 0 && copy_to_user(buf, info->data.buf + info->data.head, end_fragment)) {
+	if (end_fragment > 0 && copy_to_user(buf, info->data.buf + info->data.tail, end_fragment)) {
 		mutex_unlock(&info->lock);
 		return -EFAULT;
 	}
@@ -240,8 +240,8 @@ static ssize_t pipebuf_read(struct file *file, char __user *buf, size_t len, lof
 		mutex_unlock(&info->lock);
 		return -EFAULT;
 	}
-	info->data.head += read_size;
-	info->data.head %= info->size;
+	info->data.tail += read_size;
+	info->data.tail %= info->size;
 	if (info->data.head == info->data.tail) {
 		info->empty = 1;
 	}
@@ -268,9 +268,9 @@ static ssize_t pipebuf_write(struct file *file, const char __user *buf, size_t l
 	if (write_size == 0) {
 		write_size = min(len, info->size);
 	}
-	size_t end_fragment = min(info->size - 1 - info->data.tail, write_size);
+	size_t end_fragment = min(info->size - 1 - info->data.head, write_size);
 	size_t begin_fragment = write_size - end_fragment;
-	if (end_fragment > 0 && copy_from_user(info->data.buf + info->data.tail, buf, end_fragment)) {
+	if (end_fragment > 0 && copy_from_user(info->data.buf + info->data.head, buf, end_fragment)) {
 		mutex_unlock(&info->lock);
 		return -EFAULT;
 	}
@@ -278,8 +278,8 @@ static ssize_t pipebuf_write(struct file *file, const char __user *buf, size_t l
 		mutex_unlock(&info->lock);
 		return -EFAULT;
 	}
-	info->data.tail += write_size;
-	info->data.tail %= info->size;
+	info->data.head += write_size;
+	info->data.head %= info->size;
 	info->empty = 0;
 	wake_up(&read_wait_queue);
 	mutex_unlock(&info->lock);
