@@ -257,17 +257,14 @@ static ssize_t pipebuf_write(struct file *file, const char __user *buf, size_t l
 		return 0;
 	}
 	mutex_lock(&info->lock);
-	while (!info->empty && CIRC_SPACE(info->data.head, info->data.tail, info->size) == 0) {
+	while (!info->empty && CIRC_CNT(info->data.head, info->data.tail, info->size) == 0) {
 		mutex_unlock(&info->lock);
-		if (!wait_event_interruptible(write_wait_queue, info->empty || CIRC_SPACE(info->data.head, info->data.tail, info->size) > 0)) {
+		if (!wait_event_interruptible(write_wait_queue, info->empty || CIRC_CNT(info->data.head, info->data.tail, info->size) > 0)) {
 			return -ERESTARTSYS;
 		}
 		mutex_lock(&info->lock);
 	}
-	size_t write_size = min(len, CIRC_SPACE(info->data.head, info->data.tail, info->size));
-	if (write_size == 0) {
-		write_size = min(len, info->size);
-	}
+	size_t write_size = min(len, info->size - CIRC_CNT(info->data.head, info->data.tail, info->size));
 	size_t end_fragment = min(info->size - 1 - info->data.head, write_size);
 	size_t begin_fragment = write_size - end_fragment;
 	if (end_fragment > 0 && copy_from_user(info->data.buf + info->data.head, buf, end_fragment)) {
