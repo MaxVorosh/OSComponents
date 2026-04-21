@@ -2,7 +2,6 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 
-#include <linux/genhd.h>
 #include <linux/fs.h>
 #include <linux/blkdev.h>
 #include <linux/blk_types.h>
@@ -15,7 +14,7 @@ MODULE_DESCRIPTION("Simple RAM Disk");
 MODULE_AUTHOR("MaxVorosh");
 MODULE_LICENSE("GPL");
 
-#define MY_BLOCK_MAJOR 240
+#define MY_BLOCK_MAJOR 239
 #define MY_BLKDEV_NAME "ramdisk"
 #define MY_BLOCK_MINORS 1
 
@@ -27,18 +26,17 @@ module_param(nr_sectors, int, 0644);
 
 static struct my_block_dev {
 	struct blk_mq_tag_set tag_set;
-	struct request_queue *queue;
 	struct gendisk *gd;
 	u8 *data;
 	size_t size;
 } g_dev;
 
-static int my_block_open(struct block_device *bdev, fmode_t mode)
+static int my_block_open(struct gendisk *bdev, fmode_t mode)
 {
 	return 0;
 }
 
-static void my_block_release(struct gendisk *gd, fmode_t mode)
+static void my_block_release(struct gendisk *gd)
 {
 }
 
@@ -74,7 +72,7 @@ static void my_xfer_request(struct my_block_dev *dev, struct request *req)
 		size_t len = bvec.bv_len;
 		int dir = bio_data_dir(iter.bio);
 		char *buffer = kmap_atomic(bvec.bv_page);
-		pr_info("%s: buf %8p offset %lu len %u dir %d\n", __func__, buffer, offset, len, dir);
+		pr_info("%s: buf %8p offset %lu len %lu dir %d\n", __func__, buffer, offset, len, dir);
 
 		my_block_transfer(dev, sector, len, buffer + offset, dir);
 		kunmap_atomic(buffer);
@@ -135,46 +133,36 @@ static int create_block_device(struct my_block_dev *dev)
 	dev->tag_set.queue_depth = 128;
 	dev->tag_set.numa_node = NUMA_NO_NODE;
 	dev->tag_set.cmd_size = 0;
-	dev->tag_set.flags = BLK_MQ_F_SHOULD_MERGE;
 	err = blk_mq_alloc_tag_set(&dev->tag_set);
 	if (err) {
 	    pr_err("blk_mq_alloc_tag_set: can't allocate tag set\n");
 	    goto out_alloc_tag_set;
 	}
-
-	/* Allocate queue. */
-	dev->queue = blk_mq_init_queue(&dev->tag_set);
-	if (IS_ERR(dev->queue)) {
-		pr_err("blk_mq_init_queue: out of memory\n");
-		err = -ENOMEM;
-		goto out_blk_init;
-	}
-	blk_queue_logical_block_size(dev->queue, KERNEL_SECTOR_SIZE);
-	dev->queue->queuedata = dev;
-
-	/* initialize the gendisk structure */
-	dev->gd = alloc_disk(MY_BLOCK_MINORS);
-	if (!dev->gd) {
+	struct queue_limits limits = {.logical_block_size = KERNEL_SECTOR_SIZE};
+	dev->gd = blk_mq_alloc_disk(&dev->tag_set, &limits, dev);
+	if (IS_ERR(dev->gd)) {
 		pr_err("alloc_disk: failure\n");
 		err = -ENOMEM;
 		goto out_alloc_disk;
 	}
-
 	dev->gd->major = MY_BLOCK_MAJOR;
 	dev->gd->first_minor = 0;
 	dev->gd->fops = &my_block_ops;
-	dev->gd->queue = dev->queue;
-	dev->gd->private_data = dev;
 	snprintf(dev->gd->disk_name, DISK_NAME_LEN, "myblock");
 	set_capacity(dev->gd, nr_sectors);
 
-	add_disk(dev->gd);
+	err = add_disk(dev->gd);
+	if (err) {
+		pr_err("add_disk: failure %d\n", err);
+		goto out_add_disk;
+	}
 
 	return 0;
 
+out_add_disk:
+	put_disk(dev->gd); // Based on loop.c
+	dev->gd = NULL;
 out_alloc_disk:
-	blk_cleanup_queue(dev->queue);
-out_blk_init:
 	blk_mq_free_tag_set(&dev->tag_set);
 out_alloc_tag_set:
 	vfree(dev->data);
@@ -215,8 +203,6 @@ static void delete_block_device(struct my_block_dev *dev)
 		put_disk(dev->gd);
 	}
 
-	if (dev->queue)
-		blk_cleanup_queue(dev->queue);
 	if (dev->tag_set.tags)
 		blk_mq_free_tag_set(&dev->tag_set);
 	if (dev->data)
