@@ -138,7 +138,11 @@ static int create_block_device(struct my_block_dev *dev)
 	    pr_err("blk_mq_alloc_tag_set: can't allocate tag set\n");
 	    goto out_alloc_tag_set;
 	}
-	struct queue_limits limits = {.logical_block_size = KERNEL_SECTOR_SIZE};
+	struct queue_limits limits = {
+		.logical_block_size = KERNEL_SECTOR_SIZE,
+		.physical_block_size = KERNEL_SECTOR_SIZE,
+		.max_hw_sectors = 2560u //based on loop.c
+	};
 	dev->gd = blk_mq_alloc_disk(&dev->tag_set, &limits, dev);
 	if (IS_ERR(dev->gd)) {
 		pr_err("alloc_disk: failure\n");
@@ -147,8 +151,9 @@ static int create_block_device(struct my_block_dev *dev)
 	}
 	dev->gd->major = MY_BLOCK_MAJOR;
 	dev->gd->first_minor = 0;
+	dev->gd->minors = 1;
 	dev->gd->fops = &my_block_ops;
-	snprintf(dev->gd->disk_name, DISK_NAME_LEN, "myblock");
+	snprintf(dev->gd->disk_name, DISK_NAME_LEN, "ramdisk");
 	set_capacity(dev->gd, nr_sectors);
 
 	err = add_disk(dev->gd);
