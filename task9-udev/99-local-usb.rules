@@ -1,0 +1,4 @@
+SUBSYSTEM=="usb", ACTION=="add", RUN+="/bin/sh -c 'echo \"Hello from $attr{product}\" >> /home/user/usb_logs.log'"
+
+SUBSYSTEM=="usb", ACTION=="remove", RUN+="/bin/sh -c 'echo \"Goodbye\" >> /home/user/usb_logs.log'"
+
