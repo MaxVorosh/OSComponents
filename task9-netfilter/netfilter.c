@@ -5,14 +5,15 @@
 #include <linux/skbuff.h>
 #include <linux/ip.h>
 #include <linux/tcp.h>
+#include <linux/moduleparam.h>
 
 MODULE_DESCRIPTION("TCP netfilter");
 MODULE_AUTHOR("MaxVorosh");
 MODULE_LICENSE("GPL");
 
-int filter_port = 0;
+static int filter_port = 0;
 module_param(filter_port, int, 0644);
-MODULE_PARAM_DESC(filter_port, "port to filter");
+MODULE_PARM_DESC(filter_port, "port to filter");
 
 static unsigned int my_nf_hookfn(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
@@ -35,10 +36,10 @@ static unsigned int my_nf_hookfn(void *priv, struct sk_buff *skb, const struct n
 	  int from_port = ntohs(tcp_header->source);
 	  int to_port = ntohs(tcp_header->dest);
 	  if (tcp_header->syn && !tcp_header->ack) {
-		printk(LOG_LEVEL "TCP connection initiated from %pI4:%u to %pI4:%u\n", &from_addr, from_port, &to_addr, to_port);
+		pr_info("TCP connection initiated from %pI4:%u to %pI4:%u\n", &from_addr, from_port, &to_addr, to_port);
 	  }
 	  if (to_port == filter_port) {
-		printk(LOG_LEVEL "BLOCKED TCP connection from %pI4:%u to %pI4:%u\n", &from_addr, from_port, &to_addr, to_port);
+		pr_info("BLOCKED TCP connection from %pI4:%u to %pI4:%u\n", &from_addr, from_port, &to_addr, to_port);
 		return NF_DROP;
 	  }
       return NF_ACCEPT;
@@ -51,12 +52,12 @@ static struct nf_hook_ops my_nfho = {
       .priority    = NF_IP_PRI_FIRST
 };
 
-int __init my_hook_init(void)
+static int __init my_hook_init(void)
 {
 	return nf_register_net_hook(&init_net, &my_nfho);
 }
 
-void __exit my_hook_exit(void)
+static void __exit my_hook_exit(void)
 {
 	nf_unregister_net_hook(&init_net, &my_nfho);
 }
