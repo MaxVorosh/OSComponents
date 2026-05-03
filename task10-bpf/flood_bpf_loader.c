@@ -55,7 +55,7 @@ int main(int argc, char** argv)
     }
 
     prog = bpf_object__find_program_by_name(obj, "bpf_flood");
-    link = bpf_program__attach(prog);
+    link = bpf_program__attach_xdp(prog, if_nametoindex("enp0s3"));
     if (!link)
     {
         fprintf(stderr, "attach failed\n");
