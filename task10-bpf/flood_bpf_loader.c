@@ -5,6 +5,8 @@
 #include <bpf/libbpf.h>
 #include <errno.h>
 #include <string.h>
+#include <net/if.h>
+#include <ifaddrs.h>
 
 static volatile sig_atomic_t exiting = 0;
 
@@ -23,7 +25,7 @@ int main(int argc, char** argv)
 {
     if (argc != 2) {
         help();
-        return -1;
+        return 1;
     }
 
     int max_packets = atoi(argv[1]);
@@ -54,8 +56,16 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    struct ifaddrs* ifaddr;
+    getifaddrs(&ifaddr);
+    int ifindex = if_nametoindex(ifaddr->ifa_name);
+    if (ifindex == 0) {
+        fprintf(stderr, "failed to get interface %s\n", ifaddr->ifa_name);
+        return 1;
+    }
+
     prog = bpf_object__find_program_by_name(obj, "bpf_flood");
-    link = bpf_program__attach_xdp(prog, if_nametoindex("enp0s3"));
+    link = bpf_program__attach_xdp(prog, ifindex);
     if (!link)
     {
         fprintf(stderr, "attach failed\n");
