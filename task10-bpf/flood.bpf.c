@@ -2,7 +2,7 @@
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-#include "map_info.h"
+#include <bpf/bpf_endian.h>
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -16,10 +16,11 @@ struct {
 struct {
         __uint(type, BPF_MAP_TYPE_ARRAY);
         __uint(max_entries, 1);
+        __type(key, __u32);
         __type(value, __u32);
 } max_packets SEC(".maps");
 
-SEC("xdp/ingress")
+SEC("xdp")
 int bpf_flood(struct xdp_md *ctx)
 {
     void *data = (void *)(long)ctx->data;
@@ -31,7 +32,7 @@ int bpf_flood(struct xdp_md *ctx)
     }
 
     __u16 h_proto = eth->h_proto;
-    if (h_proto != bpf_htons(ETH_P_IP)) {
+    if (h_proto != bpf_htons(0x0800)) {
         return XDP_PASS;
     }
 
@@ -40,7 +41,7 @@ int bpf_flood(struct xdp_md *ctx)
         return XDP_ABORTED;
     }
 
-    if (iph->protocol != bpf_htons(IPPROTO_TCP)) {
+    if (iph->protocol != IPPROTO_TCP) {
         return XDP_PASS;
     }
 
@@ -49,23 +50,23 @@ int bpf_flood(struct xdp_md *ctx)
         return XDP_ABORTED;
     }
 
-    __u32 to_addr = ip_header->daddr;
+    __u32 to_addr = iph->daddr;
     
-    if (!tcp_header->syn || tcp_header->ack) {
+    if (!tcph->syn || tcph->ack) {
 		return XDP_PASS;
 	}
 
     int param_index = 0;
-    void* max_packets_value = bpf_map_lookup_elem(&max_packets, &param_index);
+    __u32* max_packets_value = bpf_map_lookup_elem(&max_packets, &param_index);
     if (!max_packets_value) {
         return XDP_PASS;
     }
 
     __u32* addr_in_map = bpf_map_lookup_elem(&packet_stats, &to_addr);
     if (addr_in_map) {
-        __u32 packets = __sync_fetch_and_add(&addr_in_map->packets, 1);
-        if (packets > *max_packets_value) {
-            __sync_fetch_and_sub(&addr_in_map->packets, 1);
+        *addr_in_map += 1;
+        if (*addr_in_map > *max_packets_value) {
+            *addr_in_map -= 1;
             bpf_printk("Drop packet from addr %pI4\n", to_addr);
             return XDP_DROP;
         }

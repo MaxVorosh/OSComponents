@@ -3,10 +3,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <bpf/libbpf.h>
-#include <poll.h>
 #include <errno.h>
 #include <string.h>
-#include "event.h"
 
 static volatile sig_atomic_t exiting = 0;
 
@@ -14,16 +12,6 @@ static void handle_sigint(int sig)
 {
     (void)sig;
     exiting = 1;
-}
-
-static int handle_event(void *ctx, void *data, size_t len)
-{
-    (void) ctx;
-    (void) len;
-    struct event *e = data;
-    printf("PID=%u COMM=%s exec=%s\n",
-           e->pid, e->comm, e->filename);
-    return 0;
 }
 
 void help() {
@@ -76,20 +64,11 @@ int main(int argc, char** argv)
 
     max_packets_obj = bpf_object__find_map_by_name(obj, "max_packets");
     int index = 0;
-    bpf_map_update_elem(&max_packets_obj, &index, &max_packets, 0);
+    bpf_map__update_elem(max_packets_obj, &index, sizeof(__u32), &max_packets, sizeof(__u32), 0);
 
     printf("Running...\n");
 
-    while (!exiting)
-    {
-        int ret = ring_buffer__poll(rb, 100);
-
-        if (ret < 0 && errno != EINTR)
-        {
-            fprintf(stderr, "poll error\n");
-            break;
-        }
-    }
+    while (!exiting) {}
 
     bpf_link__destroy(link);
     bpf_object__close(obj);

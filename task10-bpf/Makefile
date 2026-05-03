@@ -1,10 +1,10 @@
 all: run
 
 flood_bpf_loader: flood.bpf.o flood_bpf_loader.c
-	gcc -O2 -Wall -Wextra -lbpf flood_bpf_loader.c -o flood_bpf_loader
+	gcc -O2 -Wall -Wextra flood_bpf_loader.c -o flood_bpf_loader -lbpf
 
 flood.bpf.o: flood.bpf.c vmlinux.h
-	clang -O2 -Wall -Wextra -target bpf -c flood.bpf.c -o flood.bpf.o
+	clang -O2 -g -Wall -Wextra -target bpf -c flood.bpf.c -o flood.bpf.o
 
 clean:
 	rm *.o flood_bpf_loader vmlinux.h
