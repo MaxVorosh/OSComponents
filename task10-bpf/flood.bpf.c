@@ -23,6 +23,7 @@ struct {
 SEC("xdp")
 int bpf_flood(struct xdp_md *ctx)
 {
+    bpf_printk("Got request");
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
     struct ethhdr *eth = data;
