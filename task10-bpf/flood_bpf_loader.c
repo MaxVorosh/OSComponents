@@ -56,11 +56,11 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    struct ifaddrs* ifaddr;
-    getifaddrs(&ifaddr);
-    int ifindex = if_nametoindex(ifaddr->ifa_name);
+//     struct ifaddrs* ifaddr;
+//     getifaddrs(&ifaddr);
+    int ifindex = if_nametoindex("lo");
     if (ifindex == 0) {
-        fprintf(stderr, "failed to get interface %s\n", ifaddr->ifa_name);
+        fprintf(stderr, "failed to get interface lo\n");
         return 1;
     }
 
@@ -78,7 +78,9 @@ int main(int argc, char** argv)
 
     printf("Running...\n");
 
-    while (!exiting) {}
+    while (!exiting) {
+        usleep(100);
+    }
 
     bpf_link__destroy(link);
     bpf_object__close(obj);
