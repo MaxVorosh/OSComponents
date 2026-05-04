@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <bpf/libbpf.h>
+#include <bpf/bpf.h>
 #include <errno.h>
 #include <string.h>
 #include <net/if.h>
@@ -18,12 +19,12 @@ static void handle_sigint(int sig)
 
 void help() {
     printf("Wrong number of arguments\n");
-    printf("Usage: ./flood_bpf_loader <flood_threshold>");
+    printf("Usage: ./flood_bpf_loader <flood_threshold> <interface=lo>");
 }
 
 int main(int argc, char** argv)
 {
-    if (argc != 2) {
+    if (argc < 2 || argc > 3) {
         help();
         return 1;
     }
@@ -32,8 +33,6 @@ int main(int argc, char** argv)
 
     struct bpf_object *obj;
     struct bpf_program *prog;
-    struct bpf_link *link;
-    struct bpf_map *max_packets_obj;
 
     struct sigaction sa =
     {
@@ -56,25 +55,24 @@ int main(int argc, char** argv)
         return 1;
     }
 
-//     struct ifaddrs* ifaddr;
-//     getifaddrs(&ifaddr);
-    int ifindex = if_nametoindex("lo");
+    char* ifname = argc == 2 ? "lo" : argv[2];
+    int ifindex = if_nametoindex(ifname);
     if (ifindex == 0) {
-        fprintf(stderr, "failed to get interface lo\n");
+        fprintf(stderr, "failed to get interface %s\n", ifname);
         return 1;
     }
 
     prog = bpf_object__find_program_by_name(obj, "bpf_flood");
-    link = bpf_program__attach_xdp(prog, ifindex);
-    if (!link)
+    int err = bpf_xdp_attach(ifindex, bpf_program__fd(prog), 0, NULL);
+    if (err)
     {
         fprintf(stderr, "attach failed\n");
         return 1;
     }
 
-    max_packets_obj = bpf_object__find_map_by_name(obj, "max_packets");
+   int  max_packets_fd = bpf_object__find_map_fd_by_name(obj, "max_packets");
     int index = 0;
-    bpf_map__update_elem(max_packets_obj, &index, sizeof(__u32), &max_packets, sizeof(__u32), 0);
+    bpf_map_update_elem(max_packets_fd, &index, &max_packets, BPF_ANY);
 
     printf("Running...\n");
 
@@ -82,7 +80,7 @@ int main(int argc, char** argv)
         usleep(100);
     }
 
-    bpf_link__destroy(link);
+    bpf_xdp_detach(ifindex, 0, NULL);
     bpf_object__close(obj);
 
     return 0;

@@ -76,7 +76,7 @@ int bpf_flood(struct xdp_md *ctx)
     }
     else if (*max_packets_value > 0) {
         int new_value = 1;
-        bpf_map_update_elem(&packet_stats, &to_addr, &new_value, 0);
+        bpf_map_update_elem(&packet_stats, &to_addr, &new_value, BPF_ANY);
         return XDP_PASS;
     }
     return XDP_DROP;
