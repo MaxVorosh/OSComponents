@@ -6,6 +6,8 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
+#define ETH_P_IP 0x0800
+
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
         __uint(max_entries, 128);
@@ -34,7 +36,7 @@ int bpf_flood(struct xdp_md *ctx)
     }
 
     __u16 h_proto = eth->h_proto;
-    if (h_proto != bpf_htons(0x0800)) {
+    if (h_proto != bpf_htons(ETH_P_IP)) {
         bpf_printk("Pass not ip");
         return XDP_PASS;
     }
@@ -67,8 +69,8 @@ int bpf_flood(struct xdp_md *ctx)
 
     __u32 to_addr = iph->daddr;
     
-    if (!tcph->syn || tcph->ack) {
-        bpf_printk("Pass not syn");
+    if (!tcph->syn && !tcph->ack) {
+        bpf_printk("Pass not syn, nor ack");
 		return XDP_PASS;
 	}
 
@@ -81,16 +83,26 @@ int bpf_flood(struct xdp_md *ctx)
 
     __u32* addr_in_map = bpf_map_lookup_elem(&packet_stats, &to_addr);
     if (addr_in_map) {
+        if (tcph->ack) {
+            if (*addr_in_map > 0) {
+                *addr_in_map -= 1;
+            }
+            bpf_printk("Pass ack packet from addr %pI4", to_addr);
+            return XDP_PASS;
+        }
         *addr_in_map += 1;
         if (*addr_in_map > *max_packets_value) {
-            *addr_in_map -= 1;
-            bpf_printk("Drop packet from addr %pI4", to_addr);
+            bpf_printk("Drop syn packet from addr %pI4", to_addr);
             return XDP_DROP;
         }
-        bpf_printk("Pass packet from addr %pI4", to_addr);
+        bpf_printk("Pass syn packet from addr %pI4", to_addr);
         return XDP_PASS;
     }
     else if (*max_packets_value > 0) {
+        if (tcph->ack) {
+            bpf_printk("Pass ack from unknown addr %pI4", to_addr);
+            return XDP_PASS;
+        }
         int new_value = 1;
         bpf_map_update_elem(&packet_stats, &to_addr, &new_value, BPF_ANY);
         bpf_printk("Pass new addr in map: %pI4", to_addr);
