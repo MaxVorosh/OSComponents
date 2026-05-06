@@ -125,7 +125,7 @@ int send_tcp_packet(int sock, const char *src_ip, const char *dst_ip,
         return -1;
     }
     
-    if (sendto(sock, datagram, iph->tot_len, 0, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
+    if (sendto(sock, datagram, iph->tot_len, MSG_CONFIRM, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
         perror("sendto");
         return -1;
     }
@@ -161,10 +161,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error: This program requires root privileges.\n");
         exit(1);
     }
-    
-    printf("=== TCP SYN/ACK Packet Sender ===\n");
-    printf("Target: %s:%d\n", target_ip, target_port);
-    printf("Wait time: %d seconds\n\n", wait_seconds);
     
     // Send 15 SYN packets
     printf("Sending 15 SYN packets...\n");
@@ -204,7 +200,24 @@ int main(int argc, char *argv[]) {
         usleep(100000); // 100ms delay between packets
     }
     printf("Finished sending 10 ACK packets.\n");
-    
+
+    // Send 15 SYN packets
+    printf("Sending 15 SYN packets...\n");
+    for (i = 0; i < 15; i++) {
+        int src_port = 8080;
+        
+        if (send_tcp_packet(sock, "0.0.0.0", target_ip, src_port, target_port, 
+                           i, 0, TH_SYN, NULL, 0) == 0) {
+            printf("  Sent SYN packet %d/15 (src_port=%d, seq=%u)\n", 
+                   i + 1, src_port, i);
+        } else {
+            printf("  Failed to send SYN packet %d/15\n", i + 1);
+        }
+        
+        usleep(100000); // 100ms delay between packets
+    }
+    printf("Finished sending 15 SYN packets.\n\n");
+
     close(sock);
     return 0;
 }
