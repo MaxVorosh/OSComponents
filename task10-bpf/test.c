@@ -166,18 +166,15 @@ int main(int argc, char *argv[]) {
     printf("Target: %s:%d\n", target_ip, target_port);
     printf("Wait time: %d seconds\n\n", wait_seconds);
     
-    srand(time(NULL));
-    
     // Send 15 SYN packets
     printf("Sending 15 SYN packets...\n");
     for (i = 0; i < 15; i++) {
-        int src_port = 10000 + (rand() % 50000);
-        u_int32_t seq_num = rand() % 1000000;
+        int src_port = 8080;
         
         if (send_tcp_packet(sock, "0.0.0.0", target_ip, src_port, target_port, 
-                           seq_num, 0, TH_SYN, NULL, 0) == 0) {
+                           i, 0, TH_SYN, NULL, 0) == 0) {
             printf("  Sent SYN packet %d/15 (src_port=%d, seq=%u)\n", 
-                   i + 1, src_port, seq_num);
+                   i + 1, src_port, i);
         } else {
             printf("  Failed to send SYN packet %d/15\n", i + 1);
         }
@@ -194,14 +191,12 @@ int main(int argc, char *argv[]) {
     // Send 10 ACK packets
     printf("Sending 10 ACK packets...\n");
     for (i = 0; i < 10; i++) {
-        int src_port = 10000 + (rand() % 50000);
-        u_int32_t seq_num = rand() % 1000000;
-        u_int32_t ack_num = rand() % 1000000;
+        int src_port = 8080;
         
         if (send_tcp_packet(sock, "0.0.0.0", target_ip, src_port, target_port, 
-                           seq_num, ack_num, TH_ACK, NULL, 0) == 0) {
+                           i, i, TH_ACK, NULL, 0) == 0) {
             printf("  Sent ACK packet %d/10 (src_port=%d, seq=%u, ack=%u)\n", 
-                   i + 1, src_port, seq_num, ack_num);
+                   i + 1, src_port, i, i);
         } else {
             printf("  Failed to send ACK packet %d/10\n", i + 1);
         }

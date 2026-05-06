@@ -6,6 +6,8 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
+#define ETH_P_IP 0x0800
+
 struct {
         __uint(type, BPF_MAP_TYPE_HASH);
         __uint(max_entries, 128);
@@ -34,7 +36,7 @@ int bpf_flood(struct xdp_md *ctx)
     }
 
     __u16 h_proto = eth->h_proto;
-    if (h_proto != bpf_htons(0x0800)) {
+    if (h_proto != bpf_htons(ETH_P_IP)) {
         bpf_printk("Pass not ip");
         return XDP_PASS;
     }
@@ -67,8 +69,8 @@ int bpf_flood(struct xdp_md *ctx)
 
     __u32 to_addr = iph->daddr;
     
-    if (!tcph->syn) {
-        bpf_printk("Pass not syn");
+    if (!tcph->syn && !tcph->ack) {
+        bpf_printk("Pass not syn, nor ack");
 		return XDP_PASS;
 	}
 
